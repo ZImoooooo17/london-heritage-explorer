@@ -24,13 +24,47 @@ function SmallSquare({ x, y, fill, size = 9 }) {
   );
 }
 
+function buildRoutePath(points = []) {
+  if (!points.length) return "";
+
+  if (points.length === 1) {
+    return `M ${points[0].x} ${points[0].y}`;
+  }
+
+  let d = `M ${points[0].x} ${points[0].y}`;
+
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    const midX = (prev.x + curr.x) / 2;
+    const midY = (prev.y + curr.y) / 2;
+
+    d += ` Q ${prev.x} ${prev.y} ${midX} ${midY}`;
+  }
+
+  const last = points[points.length - 1];
+  d += ` T ${last.x} ${last.y}`;
+
+  return d;
+}
+
 export default function MapView({
   routeType,
   heritageSites,
+  routeData,
+  routeStops = [],
   selectedSite,
   showPopup,
   onSelectSite,
 }) {
+  const geometry = routeData?.geometry || [];
+  const routePath = buildRoutePath(geometry);
+
+  const startPoint = geometry[0];
+  const endPoint = geometry[geometry.length - 1];
+
+  const visibleSites = routeStops.length ? routeStops : heritageSites;
+
   return (
     <svg
       className="map-canvas"
@@ -39,27 +73,125 @@ export default function MapView({
     >
       <rect width="620" height="680" fill="#F0EBE0" />
 
-      <rect x="30" y="30" width="140" height="90" rx="2" fill="#E8E2D4" opacity="0.8" />
-      <rect x="200" y="50" width="180" height="70" rx="2" fill="#E8E2D4" opacity="0.8" />
-      <rect x="410" y="40" width="180" height="100" rx="2" fill="#E8E2D4" opacity="0.8" />
-      <rect x="30" y="160" width="100" height="120" rx="2" fill="#E8E2D4" opacity="0.8" />
-      <rect x="160" y="150" width="130" height="90" rx="2" fill="#E8E2D4" opacity="0.8" />
-      <rect x="330" y="170" width="120" height="120" rx="2" fill="#E8E2D4" opacity="0.8" />
-      <rect x="470" y="180" width="100" height="90" rx="2" fill="#E8E2D4" opacity="0.8" />
-      <rect x="70" y="330" width="110" height="120" rx="2" fill="#E8E2D4" opacity="0.8" />
-      <rect x="220" y="320" width="140" height="100" rx="2" fill="#E8E2D4" opacity="0.8" />
-      <rect x="390" y="330" width="160" height="120" rx="2" fill="#E8E2D4" opacity="0.8" />
-      <rect x="100" y="500" width="150" height="110" rx="2" fill="#E8E2D4" opacity="0.8" />
-      <rect x="300" y="500" width="180" height="100" rx="2" fill="#E8E2D4" opacity="0.8" />
-
-      <path
-        d="M100 600 C150 540, 190 500, 200 450 S255 425, 290 405 S340 340, 370 300 S450 180, 500 120"
-        fill="none"
-        stroke="#7F77DD"
-        strokeWidth="5"
-        strokeDasharray={routeType === "adventure" ? "10 9" : "0"}
-        strokeLinecap="round"
+      <rect
+        x="30"
+        y="30"
+        width="140"
+        height="90"
+        rx="2"
+        fill="#E8E2D4"
+        opacity="0.8"
       />
+      <rect
+        x="200"
+        y="50"
+        width="180"
+        height="70"
+        rx="2"
+        fill="#E8E2D4"
+        opacity="0.8"
+      />
+      <rect
+        x="410"
+        y="40"
+        width="180"
+        height="100"
+        rx="2"
+        fill="#E8E2D4"
+        opacity="0.8"
+      />
+      <rect
+        x="30"
+        y="160"
+        width="100"
+        height="120"
+        rx="2"
+        fill="#E8E2D4"
+        opacity="0.8"
+      />
+      <rect
+        x="160"
+        y="150"
+        width="130"
+        height="90"
+        rx="2"
+        fill="#E8E2D4"
+        opacity="0.8"
+      />
+      <rect
+        x="330"
+        y="170"
+        width="120"
+        height="120"
+        rx="2"
+        fill="#E8E2D4"
+        opacity="0.8"
+      />
+      <rect
+        x="470"
+        y="180"
+        width="100"
+        height="90"
+        rx="2"
+        fill="#E8E2D4"
+        opacity="0.8"
+      />
+      <rect
+        x="70"
+        y="330"
+        width="110"
+        height="120"
+        rx="2"
+        fill="#E8E2D4"
+        opacity="0.8"
+      />
+      <rect
+        x="220"
+        y="320"
+        width="140"
+        height="100"
+        rx="2"
+        fill="#E8E2D4"
+        opacity="0.8"
+      />
+      <rect
+        x="390"
+        y="330"
+        width="160"
+        height="120"
+        rx="2"
+        fill="#E8E2D4"
+        opacity="0.8"
+      />
+      <rect
+        x="100"
+        y="500"
+        width="150"
+        height="110"
+        rx="2"
+        fill="#E8E2D4"
+        opacity="0.8"
+      />
+      <rect
+        x="300"
+        y="500"
+        width="180"
+        height="100"
+        rx="2"
+        fill="#E8E2D4"
+        opacity="0.8"
+      />
+
+      {routePath && (
+        <path
+          d={routePath}
+          fill="none"
+          stroke="#7F77DD"
+          strokeWidth="5"
+          strokeDasharray={routeType === "adventure" ? "10 9" : "0"}
+          strokeLinecap="round"
+        />
+      )}
 
       {trees.map((item, i) => (
         <SmallCircle key={`tree-${i}`} x={item.x} y={item.y} fill="#3B6D11" />
@@ -70,7 +202,12 @@ export default function MapView({
       ))}
 
       {signals.map((item, i) => (
-        <SmallCircle key={`signal-${i}`} x={item.x} y={item.y} fill="#BA7517" />
+        <SmallCircle
+          key={`signal-${i}`}
+          x={item.x}
+          y={item.y}
+          fill="#BA7517"
+        />
       ))}
 
       {benches.map((item, i) => (
@@ -81,7 +218,7 @@ export default function MapView({
         <SmallCircle key={`lamp-${i}`} x={item.x} y={item.y} fill="#185FA5" />
       ))}
 
-      {heritageSites.map((site) => {
+      {visibleSites.map((site, index) => {
         const isActive = selectedSite?.id === site.id && showPopup;
 
         return (
@@ -97,6 +234,7 @@ export default function MapView({
               fill={isActive ? "#534AB7" : "#7F77DD"}
               opacity="0.95"
             />
+
             {isActive && (
               <circle
                 cx={site.x}
@@ -108,6 +246,7 @@ export default function MapView({
                 opacity="0.4"
               />
             )}
+
             <text
               x={site.x}
               y={site.y + 5}
@@ -116,19 +255,58 @@ export default function MapView({
               fontWeight="600"
               fill="white"
             >
-              {site.id}
+              {index + 1}
             </text>
           </g>
         );
       })}
 
-      <circle cx="100" cy="600" r="6" fill="white" stroke="#3B6D11" strokeWidth="2" />
-      <circle cx="500" cy="120" r="6" fill="white" stroke="#A32D2D" strokeWidth="2" />
+      {startPoint && (
+        <circle
+          cx={startPoint.x}
+          cy={startPoint.y}
+          r="6"
+          fill="white"
+          stroke="#3B6D11"
+          strokeWidth="2"
+        />
+      )}
 
-      <circle cx="200" cy="500" r="10" fill="none" stroke="#7F77DD" strokeWidth="2" opacity="0.5">
-        <animate attributeName="r" values="10;16;10" dur="2s" repeatCount="indefinite" />
-        <animate attributeName="opacity" values="0.5;0;0.5" dur="2s" repeatCount="indefinite" />
-      </circle>
+      {endPoint && (
+        <circle
+          cx={endPoint.x}
+          cy={endPoint.y}
+          r="6"
+          fill="white"
+          stroke="#A32D2D"
+          strokeWidth="2"
+        />
+      )}
+
+      {selectedSite && showPopup && (
+        <circle
+          cx={selectedSite.x}
+          cy={selectedSite.y}
+          r="10"
+          fill="none"
+          stroke="#7F77DD"
+          strokeWidth="2"
+          opacity="0.5"
+        >
+          <animate
+            attributeName="r"
+            values="10;16;10"
+            dur="2s"
+            repeatCount="indefinite"
+          />
+          <animate
+            attributeName="opacity"
+            values="0.5;0;0.5"
+            dur="2s"
+            repeatCount="indefinite"
+          />
+        </circle>
+      )}
     </svg>
   );
 }

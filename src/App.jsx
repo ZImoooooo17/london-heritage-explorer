@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import Sidebar from "./components/Sidebar";
 import MapView from "./components/MapView";
 import HeritagePopup from "./components/HeritagePopup";
 import { heritageSites } from "./data/heritageSites";
+import { getRoute } from "./services/api";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("Journey");
@@ -12,25 +13,13 @@ export default function App() {
   const [travelMode, setTravelMode] = useState("walk");
   const [routeType, setRouteType] = useState("adventure");
   const [timeMinutes, setTimeMinutes] = useState(120);
-  const [selectedSite, setSelectedSite] = useState(heritageSites[4]);
+
+  const [selectedSite, setSelectedSite] = useState(null);
   const [showPopup, setShowPopup] = useState(true);
 
-  const stats = useMemo(() => {
-    const stops =
-      routeType === "adventure" ? Math.min(8, Math.floor(timeMinutes / 25)) : 2;
-
-    const time =
-      travelMode === "walk"
-        ? Math.round(timeMinutes * 0.8)
-        : Math.round(timeMinutes * 0.5);
-
-    const distance =
-      travelMode === "walk"
-        ? (stops * 0.5).toFixed(1)
-        : (stops * 0.8).toFixed(1);
-
-    return { stops, time, distance };
-  }, [travelMode, routeType, timeMinutes]);
+  const [routeData, setRouteData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleTimeChange = (delta) => {
     setTimeMinutes((prev) => Math.max(30, Math.min(300, prev + delta)));
@@ -40,6 +29,68 @@ export default function App() {
     setSelectedSite(site);
     setShowPopup(true);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRoute() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const data = await getRoute({
+          start,
+          end,
+          mode: travelMode,
+          routeType,
+          availableTime: timeMinutes,
+        });
+
+        if (!cancelled) {
+          setRouteData(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError("Could not load route.");
+        }
+        console.error(err);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadRoute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [start, end, travelMode, routeType, timeMinutes]);
+
+  useEffect(() => {
+    if (!routeData?.stops?.length) {
+      setSelectedSite(null);
+      return;
+    }
+
+    const selectedStillExists = routeData.stops.some(
+      (site) => site.id === selectedSite?.id
+    );
+
+    if (!selectedStillExists) {
+      setSelectedSite(routeData.stops[0]);
+      setShowPopup(true);
+    }
+  }, [routeData, selectedSite]);
+
+  const stats = useMemo(() => {
+    return {
+      stops: routeData?.stops?.length ?? 0,
+      time: routeData?.durationMin ?? 0,
+      distance: routeData?.distanceKm?.toFixed(1) ?? "0.0",
+    };
+  }, [routeData]);
 
   return (
     <div className="app">
@@ -60,9 +111,14 @@ export default function App() {
       />
 
       <main className="map-area">
+        {loading && <div className="route-status">Calculating route...</div>}
+        {error && <div className="route-status route-error">{error}</div>}
+
         <MapView
           routeType={routeType}
           heritageSites={heritageSites}
+          routeData={routeData}
+          routeStops={routeData?.stops || []}
           selectedSite={selectedSite}
           showPopup={showPopup}
           onSelectSite={handleSelectSite}

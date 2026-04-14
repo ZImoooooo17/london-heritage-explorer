@@ -5,7 +5,7 @@ function formatTime(minutes) {
   const m = minutes % 60;
 
   if (h > 0) {
-    return m > 0 ? `${h}h ${m}m` : `${h} hrs`;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
   }
   return `${m} min`;
 }
@@ -152,7 +152,7 @@ export default function Sidebar({
             <div className="stat-lbl">Heritage stops</div>
           </div>
           <div className="stat-card">
-            <div className="stat-val">{stats.time} min</div>
+            <div className="stat-val">{formatTime(stats.time)}</div>
             <div className="stat-lbl">Est. time</div>
           </div>
           <div className="stat-card">
@@ -161,16 +161,7 @@ export default function Sidebar({
           </div>
         </div>
 
-        <button
-          className="go-btn"
-          onClick={() =>
-            alert(
-              "Later you can connect this button to route generation, external APIs, or a detail panel."
-            )
-          }
-        >
-          Generate route ↗
-        </button>
+        <div className="route-note">Route updates automatically</div>
       </div>
     </aside>
   );
