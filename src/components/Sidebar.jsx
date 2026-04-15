@@ -8,6 +8,7 @@ function formatTime(minutes) {
   if (h > 0) {
     return m > 0 ? `${h}h ${m}m` : `${h}h`;
   }
+
   return `${m} min`;
 }
 
@@ -29,6 +30,48 @@ function SummaryRow({ label, value }) {
   );
 }
 
+function StoryCard({ index, site, selectedHeritage, onSelectHeritage }) {
+  if (!site) return null;
+
+  return (
+    <article
+      className={`story-card clickable ${
+        selectedHeritage?.name === site.name ? "active" : ""
+      }`}
+      onClick={() => onSelectHeritage?.(site)}
+    >
+      <div className="story-card-top">
+        <span className="story-index">{index + 1}</span>
+        <span className="story-tag">Heritage stop</span>
+      </div>
+
+      <h4 className="story-title">{site.name}</h4>
+
+      <p className="story-description">
+        {site.description ||
+          "A heritage point along the selected journey, included to support spatial storytelling and route discovery."}
+      </p>
+    </article>
+  );
+}
+
+function LayerToggle({ label, layerKey, checked, onChange }) {
+  return (
+    <label className="layer-toggle">
+      <span className="layer-toggle-left">
+        <span className={`legend-dot ${layerKey}`} />
+        <span>{label}</span>
+      </span>
+
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={() => onChange?.(layerKey)}
+      />
+    </label>
+  );
+}
+
 export default function Sidebar({
   activeTab,
   setActiveTab,
@@ -36,30 +79,58 @@ export default function Sidebar({
   setStart,
   end,
   setEnd,
+  swapLocations,
   travelMode,
   setTravelMode,
   routeType,
   setRouteType,
   timeMinutes,
   handleTimeChange,
+  timeStep = 30,
   stats,
-  locations = ["Camden Town", "UCL"],
+  locations = [],
+  visibleHeritageSites = [],
+  selectedHeritage,
+  onSelectHeritage,
+  layerVisibility = {
+    heritage: true,
+    bus: true,
+    tree: true,
+    bench: true,
+    signal: true,
+    lamp: false,
+  },
+  setLayerVisibility,
 }) {
   const routeSummary = {
     distance: stats?.distance ?? "4.8 km",
     duration:
       stats?.durationText ??
-      formatTime(stats?.durationMinutes ?? timeMinutes ?? 120),
-    heritageStops: stats?.heritageStops ?? 6,
-    urbanFeatures: stats?.urbanFeatures ?? 14,
+      formatTime(stats?.durationMinutes ?? timeMinutes ?? 90),
+    heritageStops: stats?.heritageStops ?? visibleHeritageSites.length ?? 0,
+    urbanFeatures: stats?.urbanFeatures ?? 12,
+  };
+
+  const storyPreviewSites =
+    routeType === "direct"
+      ? visibleHeritageSites.slice(0, 3)
+      : visibleHeritageSites.slice(0, 4);
+
+  const toggleLayer = (layerKey) => {
+    if (!setLayerVisibility) return;
+
+    setLayerVisibility((prev) => ({
+      ...prev,
+      [layerKey]: !prev[layerKey],
+    }));
   };
 
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <div className="app-title">London</div>
-        <div className="app-subtitle">Heritage Explorer</div>
-        <div className="app-caption">
+        <div className="app-kicker">Spatial data story prototype</div>
+        <div className="app-title">London Heritage Explorer</div>
+        <div className="app-subtitle">
           Explore route-based heritage stories across the city
         </div>
       </div>
@@ -79,7 +150,7 @@ export default function Sidebar({
 
       {activeTab === "Journey" && (
         <>
-          <SidebarSection title="Route inputs">
+          <SidebarSection title="Journey setup">
             <div className="control-group">
               <label className="control-label" htmlFor="start-select">
                 Start
@@ -98,6 +169,16 @@ export default function Sidebar({
                 </select>
                 <span className="location-dot start-dot" />
               </div>
+            </div>
+
+            <div className="swap-row">
+              <button
+                type="button"
+                className="swap-button"
+                onClick={swapLocations}
+              >
+                Swap route
+              </button>
             </div>
 
             <div className="control-group">
@@ -122,6 +203,7 @@ export default function Sidebar({
           </SidebarSection>
 
           <SidebarSection title="Travel preferences">
+            <div className="control-subtitle">Mode</div>
             <div className="toggle-group">
               <button
                 type="button"
@@ -143,7 +225,7 @@ export default function Sidebar({
               </button>
             </div>
 
-            <div className="control-subtitle">Route type</div>
+            <div className="control-subtitle route-type-label">Route type</div>
             <div className="toggle-group">
               <button
                 type="button"
@@ -164,6 +246,12 @@ export default function Sidebar({
                 Adventure
               </button>
             </div>
+
+            <div className="route-mode-note">
+              {routeType === "direct"
+                ? "Direct prioritises a shorter and clearer connection between selected landmarks."
+                : "Adventure expands the journey to include more heritage storytelling stops and supporting city features."}
+            </div>
           </SidebarSection>
 
           {routeType === "adventure" && (
@@ -172,7 +260,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   className="step-button"
-                  onClick={() => handleTimeChange(-30)}
+                  onClick={() => handleTimeChange(-timeStep)}
                   aria-label="Decrease available time"
                 >
                   −
@@ -183,7 +271,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   className="step-button"
-                  onClick={() => handleTimeChange(30)}
+                  onClick={() => handleTimeChange(timeStep)}
                   aria-label="Increase available time"
                 >
                   +
@@ -192,9 +280,10 @@ export default function Sidebar({
             </SidebarSection>
           )}
 
+
           <SidebarSection title="Route summary" className="summary-card">
             <SummaryRow label="Distance" value={routeSummary.distance} />
-            <SummaryRow label="Duration" value={routeSummary.duration} />
+            <SummaryRow label="Estimated time" value={routeSummary.duration} />
             <SummaryRow
               label="Heritage stops"
               value={routeSummary.heritageStops}
@@ -206,40 +295,39 @@ export default function Sidebar({
 
             <div className="route-note">
               {routeType === "direct"
-                ? "Direct prioritises a faster, more functional route."
-                : "Adventure prioritises a richer, more exploratory journey."}
+                ? "Best for a fast and legible route between key heritage landmarks."
+                : "Best for a story-led journey that expands with time and reveals more of the urban corridor."}
             </div>
           </SidebarSection>
 
-          <SidebarSection title="Map legend">
-            <div className="legend-group primary">
-              <div className="legend-item">
-                <span className="legend-dot heritage-dot" />
-                <span>Heritage sites</span>
+          <SidebarSection title="Story preview">
+            <div className="story-preview-header">
+              <div className="story-preview-title">
+                {routeType === "adventure"
+                  ? "Narrative stops on this route"
+                  : "Key stops on this route"}
+              </div>
+              <div className="story-preview-meta">
+                {storyPreviewSites.length} visible
               </div>
             </div>
 
-            <div className="legend-group">
-              <div className="legend-item">
-                <span className="legend-dot bus-dot" />
-                <span>Bus stops</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot tree-dot" />
-                <span>Trees</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot bench-dot" />
-                <span>Benches</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot signal-dot" />
-                <span>Signals</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot lamp-dot" />
-                <span>Street lamps</span>
-              </div>
+            <div className="story-preview-list">
+              {storyPreviewSites.length > 0 ? (
+                storyPreviewSites.map((site, index) => (
+                  <StoryCard
+                    key={site.id || site.name}
+                    index={index}
+                    site={site}
+                    selectedHeritage={selectedHeritage}
+                    onSelectHeritage={onSelectHeritage}
+                  />
+                ))
+              ) : (
+                <div className="empty-state">
+                  No heritage stops available for the current route.
+                </div>
+              )}
             </div>
           </SidebarSection>
         </>
@@ -248,14 +336,44 @@ export default function Sidebar({
       {activeTab === "Landmarks" && (
         <div className="tab-panel-placeholder">
           <h3>Landmarks</h3>
-          <p>Browse heritage sites along the selected route.</p>
+          <p>
+            Browse the heritage stops currently included in the selected route.
+          </p>
+
+          <div className="landmark-list">
+            {visibleHeritageSites.length > 0 ? (
+              visibleHeritageSites.map((site, index) => (
+                <div
+                  key={site.id || site.name}
+                  className={`landmark-row ${
+                    selectedHeritage?.name === site.name ? "active" : ""
+                  }`}
+                  onClick={() => onSelectHeritage?.(site)}
+                >
+                  <span className="landmark-number">{index + 1}</span>
+                  <div className="landmark-copy">
+                    <div className="landmark-name">{site.name}</div>
+                    <div className="landmark-meta">Heritage location</div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="empty-state">No landmarks available.</p>
+            )}
+          </div>
         </div>
       )}
 
       {activeTab === "Saved" && (
         <div className="tab-panel-placeholder">
           <h3>Saved</h3>
-          <p>Keep favourite places and routes here.</p>
+          <p>
+            Keep favourite routes, story stops, or future heritage journeys
+            here.
+          </p>
+          <div className="saved-placeholder-card">
+            This area is currently a placeholder for saved journeys.
+          </div>
         </div>
       )}
     </aside>

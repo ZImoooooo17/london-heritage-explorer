@@ -1,35 +1,35 @@
 export const trees = [
-  { x: 140, y: 585 },
-  { x: 160, y: 570 },
-  { x: 245, y: 430 },
-  { x: 305, y: 365 },
-  { x: 390, y: 260 },
-  { x: 515, y: 165 },
+  { id: "tree-1", lat: 51.5308, lng: -0.1268 },
+  { id: "tree-2", lat: 51.5296, lng: -0.1262 },
+  { id: "tree-3", lat: 51.5255, lng: -0.1291 },
+  { id: "tree-4", lat: 51.5216, lng: -0.1297 },
+  { id: "tree-5", lat: 51.5148, lng: -0.1348 },
+  { id: "tree-6", lat: 51.5078, lng: -0.1342 },
 ];
 
 export const busStops = [
-  { x: 180, y: 510 },
-  { x: 250, y: 455 },
-  { x: 340, y: 350 },
-  { x: 470, y: 180 },
+  { id: "bus-1", lat: 51.5294, lng: -0.1279 },
+  { id: "bus-2", lat: 51.5248, lng: -0.1286 },
+  { id: "bus-3", lat: 51.5199, lng: -0.1308 },
+  { id: "bus-4", lat: 51.5127, lng: -0.1354 },
 ];
 
 export const signals = [
-  { x: 150, y: 500 },
-  { x: 235, y: 418 },
-  { x: 355, y: 325 },
-  { x: 455, y: 205 },
+  { id: "signal-1", lat: 51.5302, lng: -0.1288 },
+  { id: "signal-2", lat: 51.5241, lng: -0.1296 },
+  { id: "signal-3", lat: 51.5188, lng: -0.1319 },
+  { id: "signal-4", lat: 51.5118, lng: -0.1359 },
 ];
 
 export const benches = [
-  { x: 175, y: 565 },
-  { x: 285, y: 390 },
-  { x: 420, y: 245 },
+  { id: "bench-1", lat: 51.5288, lng: -0.1269 },
+  { id: "bench-2", lat: 51.5228, lng: -0.1291 },
+  { id: "bench-3", lat: 51.5159, lng: -0.1339 },
 ];
 
 export const lamps = [
-  { x: 130, y: 610 },
-  { x: 220, y: 470 },
-  { x: 325, y: 335 },
-  { x: 530, y: 145 },
+  { id: "lamp-1", lat: 51.5279, lng: -0.1261 },
+  { id: "lamp-2", lat: 51.5210, lng: -0.1288 },
+  { id: "lamp-3", lat: 51.5164, lng: -0.1325 },
+  { id: "lamp-4", lat: 51.5069, lng: -0.1336 },
 ];
