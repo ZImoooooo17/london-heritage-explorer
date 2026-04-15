@@ -44,11 +44,8 @@ function getRouteTextFromLabel(label, fallbackRouteText) {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("Journey");
-
-  // UI 层只保留受控地点名，不直接暴露 routeText
   const [start, setStart] = useState("Camden Town");
   const [end, setEnd] = useState("UCL");
-
   const [travelMode, setTravelMode] = useState("walk");
   const [routeType, setRouteType] = useState("direct");
   const [timeMinutes, setTimeMinutes] = useState(120);
@@ -101,10 +98,6 @@ export default function App() {
           availableTime: timeMinutes,
         });
 
-        console.log("routeData:", data);
-        console.log("route source:", data?.meta?.source);
-        console.log("route error:", data?.meta?.error);
-
         if (!cancelled) {
           setRouteData(data);
         }
@@ -145,33 +138,37 @@ export default function App() {
   }, [routeData, selectedSite]);
 
   const stats = useMemo(() => {
-    const distanceMeters = routeData?.summary?.distance ?? 0;
-    const durationSeconds = routeData?.summary?.duration ?? 0;
+    const distanceMeters = Number(routeData?.summary?.distance ?? 0);
+    const durationSeconds = Number(routeData?.summary?.duration ?? 0);
 
     return {
       stops: routeData?.stops?.length ?? 0,
       time: Math.round(durationSeconds / 60),
-      distance: (distanceMeters / 1000).toFixed(1),
+      distanceKm: distanceMeters / 1000,
     };
   }, [routeData]);
 
   return (
     <div className="app">
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        start={start}
-        setStart={handleSafeStartChange}
-        end={end}
-        setEnd={handleSafeEndChange}
-        travelMode={travelMode}
-        setTravelMode={setTravelMode}
-        routeType={routeType}
-        setRouteType={setRouteType}
-        timeMinutes={timeMinutes}
-        handleTimeChange={handleTimeChange}
-        stats={stats}
-      />
+<Sidebar
+  activeTab={activeTab}
+  setActiveTab={setActiveTab}
+  start={start}
+  setStart={handleSafeStartChange}
+  end={end}
+  setEnd={handleSafeEndChange}
+  travelMode={travelMode}
+  setTravelMode={setTravelMode}
+  routeType={routeType}
+  setRouteType={setRouteType}
+  timeMinutes={timeMinutes}
+  handleTimeChange={handleTimeChange}
+  stats={{
+    stops: routeData?.stops?.length ?? 0,
+    time: Math.round(Number(routeData?.summary?.duration ?? 0) / 60),
+    distance: (Number(routeData?.summary?.distance ?? 0) / 1000).toFixed(1),
+  }}
+/>
 
       <main className="map-area">
         {loading && <div className="route-status">Calculating route...</div>}

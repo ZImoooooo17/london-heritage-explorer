@@ -160,23 +160,23 @@ export default function Sidebar({
       </div>
 
       <div className="route-info">
-        <div className="route-stats">
-          <div className="stat-card">
-            <div className="stat-val">{stats.stops}</div>
-            <div className="stat-lbl">Heritage stops</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-val">{formatTime(stats.time)}</div>
-            <div className="stat-lbl">Est. time</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-val">{stats.distance} km</div>
-            <div className="stat-lbl">Distance</div>
-          </div>
-        </div>
+  <div className="route-stats">
+    <div className="stat-card">
+      <div className="stat-val">{stats.stops}</div>
+      <div className="stat-lbl">Heritage stops</div>
+    </div>
+    <div className="stat-card">
+      <div className="stat-val">{formatTime(stats.time)}</div>
+      <div className="stat-lbl">Est. time</div>
+    </div>
+    <div className="stat-card">
+      <div className="stat-val">{stats.distance} km</div>
+      <div className="stat-lbl">Distance</div>
+    </div>
+  </div>
 
-        <div className="route-note">Route updates automatically</div>
-      </div>
+  <div className="route-note">Route updates automatically</div>
+</div>
     </aside>
   );
 }
