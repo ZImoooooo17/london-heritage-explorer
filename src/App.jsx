@@ -6,10 +6,49 @@ import HeritagePopup from "./components/HeritagePopup";
 import { heritageSites } from "./data/heritageSites";
 import { getRoute } from "./services/api";
 
+const PLACE_OPTIONS = [
+  {
+    id: "camden",
+    label: "Camden Town",
+    routeText: "Camden Town, London",
+  },
+  {
+    id: "ucl",
+    label: "UCL",
+    routeText: "UCL, Gower Street, WC1",
+  },
+];
+
+function findPlace(value) {
+  if (!value) return null;
+
+  const normalized = String(value).trim().toLowerCase();
+
+  return (
+    PLACE_OPTIONS.find((place) => place.id === normalized) ||
+    PLACE_OPTIONS.find((place) => place.label.toLowerCase() === normalized) ||
+    PLACE_OPTIONS.find((place) => place.routeText.toLowerCase() === normalized) ||
+    null
+  );
+}
+
+function normalizePlaceLabel(value, fallbackLabel) {
+  const matched = findPlace(value);
+  return matched ? matched.label : fallbackLabel;
+}
+
+function getRouteTextFromLabel(label, fallbackRouteText) {
+  const matched = findPlace(label);
+  return matched ? matched.routeText : fallbackRouteText;
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState("Journey");
-  const [start, setStart] = useState("Camden Town, London");
-  const [end, setEnd] = useState("UCL, Gower Street, WC1");
+
+  // UI 层只保留受控地点名，不直接暴露 routeText
+  const [start, setStart] = useState("Camden Town");
+  const [end, setEnd] = useState("UCL");
+
   const [travelMode, setTravelMode] = useState("walk");
   const [routeType, setRouteType] = useState("direct");
   const [timeMinutes, setTimeMinutes] = useState(120);
@@ -20,6 +59,22 @@ export default function App() {
   const [routeData, setRouteData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const startRouteText = useMemo(() => {
+    return getRouteTextFromLabel(start, "Camden Town, London");
+  }, [start]);
+
+  const endRouteText = useMemo(() => {
+    return getRouteTextFromLabel(end, "UCL, Gower Street, WC1");
+  }, [end]);
+
+  const handleSafeStartChange = (value) => {
+    setStart((prev) => normalizePlaceLabel(value, prev));
+  };
+
+  const handleSafeEndChange = (value) => {
+    setEnd((prev) => normalizePlaceLabel(value, prev));
+  };
 
   const handleTimeChange = (delta) => {
     setTimeMinutes((prev) => Math.max(30, Math.min(300, prev + delta)));
@@ -39,8 +94,8 @@ export default function App() {
         setError("");
 
         const data = await getRoute({
-          startText: start,
-          endText: end,
+          startText: startRouteText,
+          endText: endRouteText,
           travelMode,
           routeType,
           availableTime: timeMinutes,
@@ -71,7 +126,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [start, end, travelMode, routeType, timeMinutes]);
+  }, [startRouteText, endRouteText, travelMode, routeType, timeMinutes]);
 
   useEffect(() => {
     if (!routeData?.stops?.length) {
@@ -106,9 +161,9 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         start={start}
-        setStart={setStart}
+        setStart={handleSafeStartChange}
         end={end}
-        setEnd={setEnd}
+        setEnd={handleSafeEndChange}
         travelMode={travelMode}
         setTravelMode={setTravelMode}
         routeType={routeType}

@@ -1,5 +1,7 @@
 const tabs = ["Journey", "Landmarks", "Saved"];
 
+const placeOptions = ["Camden Town", "UCL"];
+
 function formatTime(minutes) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
@@ -47,13 +49,25 @@ export default function Sidebar({
       <div className="panel">
         <div className="field-label">Start</div>
         <div className="field-input">
-          <input value={start} onChange={(e) => setStart(e.target.value)} />
+          <select value={start} onChange={(e) => setStart(e.target.value)}>
+            {placeOptions.map((place) => (
+              <option key={place} value={place}>
+                {place}
+              </option>
+            ))}
+          </select>
           <div className="pin pin-start" />
         </div>
 
         <div className="field-label">End</div>
         <div className="field-input field-input-last">
-          <input value={end} onChange={(e) => setEnd(e.target.value)} />
+          <select value={end} onChange={(e) => setEnd(e.target.value)}>
+            {placeOptions.map((place) => (
+              <option key={place} value={place}>
+                {place}
+              </option>
+            ))}
+          </select>
           <div className="pin pin-end" />
         </div>
       </div>
