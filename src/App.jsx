@@ -80,10 +80,7 @@ export default function App() {
   );
 
   const locations = useMemo(
-    () =>
-      heritageSites
-        .filter((site) => site.startEnd !== false)
-        .map((site) => site.name),
+    () => heritageSites.map((site) => site.name),
     []
   );
 

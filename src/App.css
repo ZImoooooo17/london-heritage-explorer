@@ -59,24 +59,20 @@ select {
   top: 18px;
   left: 18px;
   z-index: 60;
-  border: 1px solid rgba(221, 214, 202, 0.92);
-  background: rgba(252, 251, 248, 0.94);
-  backdrop-filter: blur(12px);
+  border: 1px solid rgba(221, 214, 202, 0.78);
+  background: rgba(252, 251, 248, 0.78);
+  backdrop-filter: blur(10px);
   color: #1f1f1f;
   border-radius: 999px;
   padding: 9px 14px;
   font-size: 13px;
   font-weight: 600;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
   cursor: pointer;
 }
 
 .panel-shell.open .panel-toggle {
   left: 346px;
-}
-
-.map-meta {
-  left: 430px;
 }
 
 .sidebar {
@@ -90,19 +86,19 @@ select {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 252, 248, 0.84);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(120, 108, 92, 0.12);
+  background: rgba(255, 252, 248, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(120, 108, 92, 0.08);
   border-radius: 26px;
-  box-shadow: 0 14px 38px rgba(45, 35, 22, 0.08);
+  box-shadow: 0 10px 28px rgba(45, 35, 22, 0.05);
 }
 
 /* ---------- Sidebar header ---------- */
 
 .sidebar-header {
   padding: 18px 18px 12px;
-  border-bottom: 1px solid rgba(228, 221, 209, 0.9);
+  border-bottom: 1px solid rgba(228, 221, 209, 0.72);
 }
 
 .app-kicker {
@@ -140,8 +136,8 @@ select {
 
 .tab {
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid #ddd6ca;
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(221, 214, 202, 0.9);
   border-radius: 14px;
   color: #6f685f;
   cursor: pointer;
@@ -152,7 +148,7 @@ select {
 
 .tab:hover {
   color: #292724;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.84);
 }
 
 .tab.active {
@@ -177,9 +173,9 @@ select {
 .sidebar-section {
   margin: 12px 18px 0;
   padding: 14px;
-  border: 1px solid rgba(120, 108, 92, 0.1);
+  border: 1px solid rgba(120, 108, 92, 0.08);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, 0.52);
 }
 
 .section-label {
@@ -209,7 +205,7 @@ select {
   width: 100%;
   border: 1px solid #d9d2c7;
   border-radius: 12px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.82);
   padding: 10px 12px;
   display: flex;
   align-items: center;
@@ -249,7 +245,7 @@ select {
 
 .swap-button {
   border: 1px solid #ddd5c8;
-  background: #f7f4ee;
+  background: rgba(247, 244, 238, 0.88);
   color: #4d473f;
   border-radius: 999px;
   padding: 7px 12px;
@@ -291,7 +287,7 @@ select {
   border-radius: 12px;
   font-size: 13px;
   border: 1px solid #d9d2c7;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.82);
   cursor: pointer;
   color: #4f4a43;
   transition: all 0.18s ease;
@@ -312,14 +308,14 @@ select {
 /* ---------- Time ---------- */
 
 .time-card {
-  background: #fcfbf8;
+  background: rgba(252, 251, 248, 0.38);
 }
 
 .time-stepper {
   border: 1px solid #d9d2c7;
   border-radius: 14px;
   padding: 12px 14px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.82);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -383,7 +379,7 @@ select {
   padding: 12px;
   border-radius: 14px;
   border: 1px solid #e1dbcf;
-  background: #fffdfa;
+  background: rgba(255, 253, 250, 0.88);
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease,
     transform 0.15s ease, box-shadow 0.15s ease;
@@ -393,13 +389,13 @@ select {
   background: #f8f5ef;
   border-color: #d5cbbb;
   transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.03);
 }
 
 .landmark-row.active {
   background: #f3f0ff;
   border-color: #c9c1ff;
-  box-shadow: 0 8px 18px rgba(91, 79, 229, 0.08);
+  box-shadow: 0 8px 18px rgba(91, 79, 229, 0.06);
 }
 
 .landmark-number {
@@ -451,6 +447,7 @@ select {
   inset: 0;
   width: 100%;
   height: 100%;
+  filter: contrast(1.05) brightness(0.97);
 }
 
 .map-meta {
@@ -460,13 +457,14 @@ select {
   z-index: 5;
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(255, 252, 248, 0.82);
+  background: rgba(255, 252, 248, 0.7);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(120, 108, 92, 0.1);
+  border: 1px solid rgba(120, 108, 92, 0.08);
   font-size: 12px;
   color: #6a6258;
-  box-shadow: 0 8px 20px rgba(40, 32, 20, 0.06);
+  box-shadow: 0 6px 16px rgba(40, 32, 20, 0.04);
 }
+
 .map-overlay {
   position: absolute;
   z-index: 5;
@@ -493,9 +491,10 @@ select {
   align-items: center;
   padding: 10px 14px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(6px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(120, 108, 92, 0.08);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
   font-size: 13px;
 }
 
@@ -522,22 +521,28 @@ select {
   height: 44px;
   border-radius: 50%;
   font-size: 0;
+  border: 1px solid rgba(120, 108, 92, 0.1);
+  background: rgba(255, 252, 248, 0.72);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
   position: relative;
 }
 
 .legend-button::before {
   content: "☰";
   font-size: 18px;
+  color: #2d2b28;
 }
 
 .map-legend {
   width: 220px;
   padding: 14px;
   border-radius: 20px;
-  background: rgba(255, 252, 248, 0.93);
+  background: rgba(255, 252, 248, 0.82);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(120, 108, 92, 0.12);
-  box-shadow: 0 14px 30px rgba(40, 32, 20, 0.1);
+  border: 1px solid rgba(120, 108, 92, 0.1);
+  box-shadow: 0 10px 24px rgba(40, 32, 20, 0.06);
 }
 
 .legend-title {
@@ -551,8 +556,8 @@ select {
   width: 100%;
   border: none;
   background: transparent;
-  padding: 3px 4px;
-  border-radius: 6px;
+  padding: 4px 6px;
+  border-radius: 8px;
   cursor: pointer;
   text-align: left;
   transition: background 0.15s ease, opacity 0.15s ease;
@@ -563,7 +568,7 @@ select {
 }
 
 .legend-toggle:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(0, 0, 0, 0.035);
 }
 
 .legend-toggle.active {
@@ -572,7 +577,7 @@ select {
 }
 
 .legend-toggle:not(.active) {
-  opacity: 0.58;
+  opacity: 0.52;
 }
 
 .legend-row {
@@ -602,10 +607,10 @@ select {
   width: 300px;
   padding: 18px;
   border-radius: 24px;
-  background: rgba(255, 252, 248, 0.9);
+  background: rgba(255, 252, 248, 0.6);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(120, 108, 92, 0.1);
-  box-shadow: 0 12px 28px rgba(40, 32, 20, 0.08);
+  border: 1px solid rgba(120, 108, 92, 0.08);
+  box-shadow: 0 8px 22px rgba(40, 32, 20, 0.045);
 }
 
 .map-story-card h4 {
@@ -617,7 +622,7 @@ select {
 .map-story-card p {
   margin: 0;
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.65;
   color: #5f584f;
 }
 
@@ -631,10 +636,10 @@ select {
 .story-stats span {
   padding: 6px 10px;
   border-radius: 999px;
-  background: #f4f1eb;
+  background: rgba(244, 241, 235, 0.82);
   font-size: 12px;
   color: #4e4942;
-  border: 1px solid #e6dfd4;
+  border: 1px solid rgba(230, 223, 212, 0.85);
 }
 
 /* ---------- Heritage markers ---------- */
@@ -642,24 +647,24 @@ select {
 .heritage-marker {
   width: 20px;
   height: 20px;
-  border: 3px solid #ffffff;
+  border: 3px solid rgba(255, 255, 255, 0.98);
   border-radius: 999px;
   background: #6156e2;
-  box-shadow: 0 4px 12px rgba(76, 67, 216, 0.22);
+  box-shadow: 0 4px 10px rgba(76, 67, 216, 0.18);
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
   padding: 0;
 }
 
 .heritage-marker:hover {
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 
 .heritage-marker.active {
   background: #4d42d8;
-  transform: scale(1.18);
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.96),
-    0 8px 18px rgba(76, 67, 216, 0.28);
+  transform: scale(1.16);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.94),
+    0 8px 18px rgba(76, 67, 216, 0.22);
 }
 
 .heritage-marker.endpoint {
@@ -680,12 +685,12 @@ select {
   right: 18px;
   top: 72px;
   width: 285px;
-  background: rgba(255, 250, 245, 0.96);
-  border: 1px solid rgba(120, 108, 92, 0.12);
+  background: rgba(255, 250, 245, 0.94);
+  border: 1px solid rgba(120, 108, 92, 0.11);
   border-radius: 26px;
   padding: 16px;
-  box-shadow: 0 18px 40px rgba(40, 32, 20, 0.1);
-  backdrop-filter: blur(12px);
+  box-shadow: 0 16px 34px rgba(40, 32, 20, 0.08);
+  backdrop-filter: blur(14px);
   z-index: 20;
 }
 
@@ -697,7 +702,7 @@ select {
   height: 28px;
   border: none;
   border-radius: 999px;
-  background: #f2efe8;
+  background: rgba(242, 239, 232, 0.95);
   cursor: pointer;
   color: #615b54;
   font-size: 18px;
@@ -749,7 +754,7 @@ select {
 
 .popup-desc {
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.65;
   color: #5d564f;
 }
 
@@ -765,44 +770,42 @@ select {
   cursor: pointer;
 }
 
-/* ---------- Cue markers ---------- */
+/* ---------- Legacy cue marker styles ---------- */
+/* kept only as fallback in case any DOM cue marker is reintroduced */
 
 .map-feature-marker {
-  opacity: 0.9;
+  opacity: 0.35;
   transform: none;
   box-shadow: none;
   transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
 }
 
 .map-feature-marker.highlighted {
-  transform: scale(1.35);
-  opacity: 1;
-  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.55);
+  transform: scale(1.2);
+  opacity: 0.88;
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.42);
   z-index: 3;
 }
 
 .map-feature-marker.muted {
-  opacity: 0.22;
-  transform: scale(0.82);
+  opacity: 0.16;
+  transform: scale(0.84);
 }
 
-/* Trees */
 .map-feature-marker.cue-shade {
   background: #2f9e44;
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 999px;
 }
 
-/* Bus stops */
 .map-feature-marker.cue-transit {
   background: #e03131;
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 2px;
 }
 
-/* Signals */
 .map-feature-marker.cue-crossing {
   background: #f08c00;
   width: 6px;
@@ -810,46 +813,44 @@ select {
   border-radius: 999px;
 }
 
-/* Benches */
 .map-feature-marker.cue-rest {
   background: #8d6e63;
-  width: 12px;
+  width: 11px;
   height: 4px;
   border-radius: 2px;
 }
 
-/* Lamps */
 .map-feature-marker.cue-lighting {
   background: #fab005;
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  box-shadow: 0 0 6px rgba(250, 176, 5, 0.5);
+  box-shadow: 0 0 5px rgba(250, 176, 5, 0.35);
 }
 
-/* Unsupported / secondary cue families */
 .map-feature-marker.cue-rhythm,
 .map-feature-marker.cue-threshold,
 .map-feature-marker.cue-water {
-  opacity: 0.18;
+  opacity: 0.16;
   width: 6px;
   height: 6px;
   border-radius: 999px;
   background: #bdb7aa;
 }
 
-/* Reduce fog / corridor effect */
 .map-feature-marker.size-field {
-  opacity: 0.08;
-  filter: blur(8px);
+  opacity: 0.12;
+  filter: blur(14px);
+  transform: scale(1.8);
 }
 
 .map-feature-marker.size-support {
-  opacity: 0.85;
+  opacity: 0.6;
 }
 
 .map-feature-marker.size-anchor {
-  opacity: 0.95;
+  opacity: 0.9;
+  transform: scale(1.2);
 }
 
 .map-feature-marker.prominence-1 {
@@ -857,11 +858,11 @@ select {
 }
 
 .map-feature-marker.prominence-2 {
-  transform: scale(1.12);
+  transform: scale(1.08);
 }
 
 .map-feature-marker.prominence-3 {
-  transform: scale(1.2);
+  transform: scale(1.15);
 }
 
 /* ---------- Sidebar layer toggles ---------- */
@@ -880,7 +881,7 @@ select {
   padding: 10px 12px;
   border: 1px solid #e3dccf;
   border-radius: 14px;
-  background: #fffdfa;
+  background: rgba(255, 253, 250, 0.8);
 }
 
 .layer-toggle-left {
@@ -942,7 +943,7 @@ select {
 
   .map-story-card {
     width: auto;
-    max-width: none;
+    max-width: min(320px, calc(100vw - 24px));
   }
 
   .heritage-popup {

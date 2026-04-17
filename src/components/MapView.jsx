@@ -21,21 +21,6 @@ function createHeritageMarker(
   return el;
 }
 
-function createFeatureMarker(
-  type,
-  prominence = 1,
-  size = "support",
-  isHighlighted = false,
-  isMuted = false
-) {
-  const el = document.createElement("div");
-  el.className = `map-feature-marker cue-${type} prominence-${prominence} size-${size}${
-    isHighlighted ? " highlighted" : ""
-  }${isMuted ? " muted" : ""}`;
-  el.setAttribute("aria-label", `${type} cue`);
-  return el;
-}
-
 function featureCollectionFromDirections(data) {
   return {
     type: "Feature",
@@ -63,7 +48,7 @@ function buildFallbackRoute(
 
   const coordinates = [[startSite.lng, startSite.lat]];
 
-  if (routeType === "adventure" && visibleHeritageSites.length > 2) {
+  if (routeType === "adventure") {
     const middleSites = visibleHeritageSites.filter(
       (site) => site.name !== startSite.name && site.name !== endSite.name
     );
@@ -91,7 +76,7 @@ function getNarrativeCopy(routeType, travelMode) {
   if (routeType === "adventure") {
     return {
       title: "Explore by landmark",
-      description: `Use the map, numbered heritage stops, and environmental cues to guide your ${modeLabel}. No fixed route is shown — the journey is yours to interpret.`,
+      description: `Use the map, numbered heritage stops, and environmental cues to guide your ${modeLabel}. The route is suggested as a loose urban corridor rather than a fixed instruction line.`,
     };
   }
 
@@ -314,10 +299,7 @@ function interpolatePointsAlongRoute(coordinates, steps = 18) {
   for (let i = 0; i < steps; i += 1) {
     const t = i / (steps - 1);
     const segmentFloat = t * totalSegments;
-    const segmentIndex = Math.min(
-      totalSegments - 1,
-      Math.floor(segmentFloat)
-    );
+    const segmentIndex = Math.min(totalSegments - 1, Math.floor(segmentFloat));
     const localT = segmentFloat - segmentIndex;
 
     const start = coordinates[segmentIndex];
@@ -340,7 +322,13 @@ function buildCueCorridorGeoJSON(cueGroups, routeFeature, routeType) {
       features.push({
         type: "Feature",
         properties: {
+          id: item.id || `${group.key}-${item.lng}-${item.lat}`,
           type: group.key,
+          label: group.label,
+          name: item.name || group.label,
+          description:
+            item.description ||
+            `${group.label} can help guide attention through the journey without relying on turn-by-turn instruction.`,
           generated: false,
         },
         geometry: {
@@ -352,40 +340,43 @@ function buildCueCorridorGeoJSON(cueGroups, routeFeature, routeType) {
   });
 
   const coordinates = routeFeature?.geometry?.coordinates || [];
+
   if (coordinates.length >= 2) {
     const generatedPoints = interpolatePointsAlongRoute(
       coordinates,
-      routeType === "adventure" ? 16 : 10
+      routeType === "adventure" ? 60 : 24
     );
 
     const generatedTypes =
-    routeType === "adventure"
-      ? ["transit", "shade", "crossing", "rest", "lighting", "shade"]
-      : ["transit", "crossing", "shade"];
+      routeType === "adventure"
+        ? ["transit", "shade", "crossing", "rest", "lighting", "shade"]
+        : ["transit", "crossing", "shade"];
 
-      generatedPoints.forEach((coord, index) => {
-        const type = generatedTypes[index % generatedTypes.length];
-      
-        const spread =
-          routeType === "adventure"
-            ? 0.0016
-            : 0.0008;
-      
-            const lngOffset = (Math.random() - 0.5) * spread * 2;
-            const latOffset = (Math.random() - 0.5) * spread * 0.6;
+    generatedPoints.forEach((coord, index) => {
+      const type = generatedTypes[index % generatedTypes.length];
+      const category =
+        cueCategories.find((item) => item.key === type) || cueCategories[0];
 
-        features.push({
-          type: "Feature",
-          properties: {
-            type,
-            generated: true,
-          },
-          geometry: {
-            type: "Point",
-            coordinates: [coord[0] + lngOffset, coord[1] + latOffset],
-          },
-        });
+      const spread = routeType === "adventure" ? 0.0022 : 0.0012;
+      const lngOffset = (Math.random() - 0.5) * spread * 2;
+      const latOffset = (Math.random() - 0.5) * spread * 0.6;
+
+      features.push({
+        type: "Feature",
+        properties: {
+          id: `generated-${type}-${index}`,
+          type,
+          label: category.label,
+          name: category.label,
+          description: `A ${category.label.toLowerCase()} cue reinforces the spatial character of this part of the route.`,
+          generated: true,
+        },
+        geometry: {
+          type: "Point",
+          coordinates: [coord[0] + lngOffset, coord[1] + latOffset],
+        },
       });
+    });
   }
 
   return {
@@ -409,16 +400,13 @@ export default function MapView({
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const heritageMarkersRef = useRef([]);
-  const featureMarkersRef = useRef([]);
   const [mapReady, setMapReady] = useState(false);
   const [currentRoute, setCurrentRoute] = useState(null);
-const [activePopupSite, setActivePopupSite] = useState(null);
-const [popupDismissed, setPopupDismissed] = useState(false);
-const [legendOpen, setLegendOpen] = useState(false);
-  
-  ;
+  const [activePopupSite, setActivePopupSite] = useState(null);
+  const [popupDismissed, setPopupDismissed] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
+  const [highlightedCue, setHighlightedCue] = useState(null);
 
-const [highlightedCue, setHighlightedCue] = useState(null);
   const [visibleLayers, setVisibleLayers] = useState({
     heritage: true,
     transit: true,
@@ -443,7 +431,7 @@ const [highlightedCue, setHighlightedCue] = useState(null);
 
   const middleCount = useMemo(() => {
     const minutes = timeMinutes < 10 ? timeMinutes * 60 : timeMinutes;
-  
+
     if (routeType !== "adventure") return 1;
     if (minutes <= 30) return 1;
     if (minutes <= 60) return 2;
@@ -454,34 +442,29 @@ const [highlightedCue, setHighlightedCue] = useState(null);
 
   const visibleHeritageSites = useMemo(() => {
     if (!startSite || !endSite) return [];
-  
+
     const startAndEnd = [startSite, endSite].filter(Boolean);
-  
-    const uniqueSites = (sites) =>
-      sites.filter(
-        (site, index, arr) =>
-          arr.findIndex((s) => s.name === site.name) === index
-      );
-  
+
+const uniqueSites = (sites) =>
+  sites.filter(
+    (site, index, arr) =>
+      arr.findIndex(
+        (s) => s.lng === site.lng && s.lat === site.lat
+      ) === index
+  );
+
     const rankedSites = heritageSites
-      .filter(
-        (site) =>
-          site.name !== startSite.name &&
-          site.name !== endSite.name &&
-          site.adventure
-      )
+    .filter((site) => site.adventure)
+
       .map((site) => {
         const distToStart = Math.hypot(
           site.lng - startSite.lng,
           site.lat - startSite.lat
         );
-        const distToEnd = Math.hypot(
-          site.lng - endSite.lng,
-          site.lat - endSite.lat
-        );
-  
+        const distToEnd = Math.hypot(site.lng - endSite.lng, site.lat - endSite.lat);
+
         const routeBalance = Math.abs(distToStart - distToEnd);
-  
+
         return {
           ...site,
           distToStart,
@@ -495,22 +478,23 @@ const [highlightedCue, setHighlightedCue] = useState(null);
         }
         return a.routeBalance - b.routeBalance;
       });
-  
+
     const routeLength = Math.hypot(
       endSite.lng - startSite.lng,
       endSite.lat - startSite.lat
     );
-  
+
     if (routeType === "direct") {
-      const guidedCount =
-        routeLength < 0.015 ? 0 :
-        routeLength < 0.03 ? 1 :
-        2;
-  
+      const guidedCount = routeLength < 0.015 ? 0 : routeLength < 0.03 ? 1 : 2;
       return uniqueSites([...startAndEnd, ...rankedSites.slice(0, guidedCount)]);
     }
-  
-    return uniqueSites([...startAndEnd, ...rankedSites.slice(0, middleCount)]);
+
+    return uniqueSites([
+      startSite,
+      ...rankedSites.slice(0, middleCount),
+      endSite,
+    ].filter(Boolean));
+
   }, [heritageSites, routeType, startSite, endSite, middleCount]);
 
   const cueGroups = useMemo(
@@ -522,35 +506,6 @@ const [highlightedCue, setHighlightedCue] = useState(null);
     () => cueGroups.reduce((sum, group) => sum + group.items.length, 0),
     [cueGroups]
   );
-  
-  useEffect(() => {
-    console.log("routeType =", routeType);
-    console.log("timeMinutes =", timeMinutes);
-    console.log("middleCount =", middleCount);
-    console.log(
-      "visibleHeritageSites =",
-      visibleHeritageSites.map((site) => site.name)
-    );
-    console.log(
-      "all adventure candidates =",
-      heritageSites
-        .filter(
-          (site) =>
-            site.name !== startSite?.name &&
-            site.name !== endSite?.name &&
-            site.adventure
-        )
-        .map((site) => site.name)
-    );
-  }, [
-    routeType,
-    timeMinutes,
-    middleCount,
-    visibleHeritageSites,
-    heritageSites,
-    startSite,
-    endSite,
-  ]);
 
   useEffect(() => {
     if (!MAPBOX_TOKEN || mapRef.current || !mapContainerRef.current) return;
@@ -592,6 +547,46 @@ const [highlightedCue, setHighlightedCue] = useState(null);
       });
 
       map.addLayer({
+        id: "route-corridor",
+        type: "line",
+        source: "route",
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+        paint: {
+          "line-color": "#888",
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            8,
+            15,
+            18,
+          ],
+          "line-opacity": 0.12,
+          "line-blur": 1.2,
+        },
+      });
+
+      map.addLayer({
+        id: "route-line",
+        type: "line",
+        source: "route",
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+        paint: {
+          "line-color": "#888",
+          "line-width": 3,
+          "line-opacity": 0.25,
+          "line-dasharray": [1, 0],
+        },
+      });
+
+      map.addLayer({
         id: "cue-halo",
         type: "circle",
         source: "cue-points",
@@ -601,13 +596,43 @@ const [highlightedCue, setHighlightedCue] = useState(null);
             ["get", "type"],
             "shade", 34,
             "water", 30,
-            "lighting", 22,
-            "transit", 18,
-            "crossing", 16,
-            "rest", 15,
-            "threshold", 18,
-            "rhythm", 16,
-            16,
+            "lighting", 24,
+            "transit", 22,
+            "crossing", 20,
+            "rest", 18,
+            "threshold", 20,
+            "rhythm", 18,
+            18,
+          ],
+          "circle-color": [
+            "match",
+            ["get", "type"],
+            "shade", "#34C759",
+            "water", "#36B5D8",
+            "lighting", "#F4B942",
+            "transit", "#3B82F6",
+            "crossing", "#E74C3C",
+            "rest", "#A2846A",
+            "threshold", "#FF7AA2",
+            "rhythm", "#C58B00",
+            "#999999",
+          ],
+          "circle-opacity": 0.18,
+          "circle-blur": 1.2,
+          "circle-stroke-width": 0,
+        },
+      });
+
+      map.addLayer({
+        id: "cue-core",
+        type: "circle",
+        source: "cue-points",
+        paint: {
+          "circle-radius": [
+            "case",
+            ["==", ["get", "generated"], true],
+            3,
+            4,
           ],
           "circle-color": [
             "match",
@@ -624,20 +649,15 @@ const [highlightedCue, setHighlightedCue] = useState(null);
           ],
           "circle-opacity": [
             "case",
-            ["==", ["get", "type"], highlightedCue],
-            0.32,
-            0.05
+            ["==", ["get", "generated"], true],
+            0.18,
+            0.35,
           ],
-          "circle-blur": [
-            "case",
-            ["==", ["get", "type"], highlightedCue],
-            1.2,
-            0.8
-          ],
-          "circle-stroke-width": 0,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1.2,
+          "circle-stroke-opacity": 0.9,
         },
       });
-
 
       setMapReady(true);
     });
@@ -646,11 +666,7 @@ const [highlightedCue, setHighlightedCue] = useState(null);
 
     return () => {
       heritageMarkersRef.current.forEach((marker) => marker.remove());
-      featureMarkersRef.current.forEach((marker) => marker.remove());
-
       heritageMarkersRef.current = [];
-      featureMarkersRef.current = [];
-
       setMapReady(false);
       setCurrentRoute(null);
       map.remove();
@@ -658,45 +674,184 @@ const [highlightedCue, setHighlightedCue] = useState(null);
     };
   }, []);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const handleCueClick = (e) => {
+      const feature = e.features?.[0];
+      if (!feature) return;
+
+      const props = feature.properties || {};
+      const coordinates = feature.geometry?.coordinates || [];
+
+      setHighlightedCue((prev) => (prev === props.type ? null : props.type));
+      setPopupDismissed(false);
+
+      setActivePopupSite({
+        id: props.id,
+        name: props.name || props.label || "Urban cue",
+        description:
+          props.description ||
+          "This cue helps structure attention and movement through the city.",
+        lng: coordinates[0],
+        lat: coordinates[1],
+        isCue: true,
+      });
+    };
+
+    const handleMouseEnter = () => {
+      map.getCanvas().style.cursor = "pointer";
+    };
+
+    const handleMouseLeave = () => {
+      map.getCanvas().style.cursor = "";
+    };
+
+    map.on("click", "cue-core", handleCueClick);
+    map.on("mouseenter", "cue-core", handleMouseEnter);
+    map.on("mouseleave", "cue-core", handleMouseLeave);
+
+    return () => {
+      if (map.getLayer("cue-core")) {
+        map.off("click", "cue-core", handleCueClick);
+        map.off("mouseenter", "cue-core", handleMouseEnter);
+        map.off("mouseleave", "cue-core", handleMouseLeave);
+      }
+    };
+  }, [mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-  
+
     const source = map.getSource("cue-points");
     if (!source) return;
-  
-    const visibleCueGroups = cueGroups
-      .filter((group) => visibleLayers[group.key]);
-  
+
+    const visibleCueGroups = cueGroups.filter((group) => visibleLayers[group.key]);
+
     source.setData(
       buildCueCorridorGeoJSON(visibleCueGroups, currentRoute, routeType)
     );
-  
-   
-    if (map.getLayer("cue-halo")) {
-      if (highlightedCue) {
-        map.setPaintProperty("cue-halo", "circle-opacity", [
-          "case",
-          ["==", ["get", "type"], highlightedCue],
-          0.28,   
-          0.06    
-        ]);
+  }, [cueGroups, visibleLayers, currentRoute, routeType, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    if (map.getLayer("route-line")) {
+      if (routeType === "adventure") {
+        map.setPaintProperty("route-line", "line-opacity", 0.16);
+        map.setPaintProperty("route-line", "line-width", 2);
+        map.setPaintProperty("route-line", "line-dasharray", [1.2, 2.4]);
       } else {
-        map.setPaintProperty("cue-halo", "circle-opacity", 0.18);
+        map.setPaintProperty("route-line", "line-opacity", 0.78);
+        map.setPaintProperty("route-line", "line-width", 3.2);
+        map.setPaintProperty("route-line", "line-dasharray", [1, 0]);
       }
     }
-  
-  }, [
-    cueGroups,
-    visibleLayers,
-    currentRoute,
-    routeType,
-    mapReady,
-    highlightedCue 
-  ]);
 
+    if (map.getLayer("route-corridor")) {
+      map.setPaintProperty(
+        "route-corridor",
+        "line-opacity",
+        routeType === "adventure" ? 0.2 : 0.1
+      );
+      map.setPaintProperty(
+        "route-corridor",
+        "line-width",
+        routeType === "adventure" ? 60 : 20
+      );
+    }
+  }, [routeType, mapReady]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const visibleKeys = Object.entries(visibleLayers)
+      .filter(([key, value]) => key !== "heritage" && value)
+      .map(([key]) => key);
+
+    const baseFilter =
+      visibleKeys.length > 0
+        ? ["in", ["get", "type"], ["literal", visibleKeys]]
+        : ["==", ["get", "type"], "__none__"];
+
+    const highlightedFilter =
+      highlightedCue && visibleLayers[highlightedCue]
+        ? ["==", ["get", "type"], highlightedCue]
+        : baseFilter;
+
+   
+        if (map.getLayer("cue-halo")) {
+          map.setFilter("cue-halo", baseFilter);
+        
+          map.setPaintProperty(
+            "cue-halo",
+            "circle-opacity",
+            highlightedCue
+              ? 0.32
+              : routeType === "adventure"
+              ? 0.18
+              : 0.12
+          );
+        
+          map.setPaintProperty(
+            "cue-halo",
+            "circle-radius",
+            routeType === "adventure"
+              ? [
+                  "match",
+                  ["get", "type"],
+                  "shade", 60,
+                  "water", 56,
+                  "lighting", 44,
+                  "transit", 40,
+                  "crossing", 36,
+                  "rest", 34,
+                  "threshold", 36,
+                  "rhythm", 34,
+                  34,
+                ]
+              : [
+                  "match",
+                  ["get", "type"],
+                  "shade", 34,
+                  "water", 30,
+                  "lighting", 24,
+                  "transit", 22,
+                  "crossing", 20,
+                  "rest", 18,
+                  "threshold", 20,
+                  "rhythm", 18,
+                  18,
+                ]
+          );
+        }  
+
+    if (map.getLayer("cue-core")) {
+      map.setFilter("cue-core", highlightedFilter);
+
+      map.setPaintProperty(
+        "cue-core",
+        "circle-opacity",
+        highlightedCue
+          ? [
+              "case",
+              ["==", ["get", "generated"], true],
+              0.4,
+              0.75,
+            ]
+          : [
+              "case",
+              ["==", ["get", "generated"], true],
+              0.22,
+              0.45,
+            ]
+      );
+    }
+  }, [visibleLayers, highlightedCue, routeType, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -719,6 +874,7 @@ const [highlightedCue, setHighlightedCue] = useState(null);
         setPopupDismissed(false);
         setActivePopupSite(site);
       });
+
       const marker = new mapboxgl.Marker({
         element: el,
         anchor: "center",
@@ -737,55 +893,6 @@ const [highlightedCue, setHighlightedCue] = useState(null);
     mapReady,
     visibleLayers.heritage,
   ]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-
-    featureMarkersRef.current.forEach((marker) => marker.remove());
-    featureMarkersRef.current = [];
-
-    cueGroups.forEach(({ items, type, key, label }) => {
-      if (!visibleLayers[key]) return;
-    
-      items.forEach((item) => {
-        const isHighlighted = highlightedCue === key;
-        const isMuted = highlightedCue !== null && highlightedCue !== key;
-    
-        const el = createFeatureMarker(
-          type,
-          item.prominence || 1,
-          item.size || "support",
-          isHighlighted,
-          isMuted
-        );
-    
-        el.addEventListener("click", () => {
-          setHighlightedCue((prev) => (prev === key ? null : key));
-          setPopupDismissed(false);
-        
-          setActivePopupSite({
-            id: `cue-${item.id || `${item.lng}-${item.lat}`}`,
-            name: item.name || label,
-            description:
-              item.description ||
-              `${label} can help guide attention through the journey without relying on turn-by-turn instruction.`,
-            lng: item.lng,
-            lat: item.lat,
-            isCue: true,
-          });
-        });
-        const marker = new mapboxgl.Marker({
-          element: el,
-          anchor: "center",
-        })
-          .setLngLat([item.lng, item.lat])
-          .addTo(map);
-    
-        featureMarkersRef.current.push(marker);
-      });
-    });
-  }, [cueGroups, mapReady, visibleLayers, highlightedCue]);
 
   useEffect(() => {
     const focusSite = selectedHeritage || activePopupSite;
@@ -810,6 +917,7 @@ const [highlightedCue, setHighlightedCue] = useState(null);
   useEffect(() => {
     setPopupDismissed(false);
     setActivePopupSite(null);
+    setHighlightedCue(null);
   }, [startSite, endSite, routeType, timeMinutes]);
 
   useEffect(() => {
@@ -820,26 +928,28 @@ const [highlightedCue, setHighlightedCue] = useState(null);
 
     async function loadRoute() {
       try {
-        let coordinatesForDirections = `${startSite.lng},${startSite.lat};${endSite.lng},${endSite.lat}`;
-
+        let coordinatesForDirections = [
+          `${startSite.lng},${startSite.lat}`,
+          `${endSite.lng},${endSite.lat}`,
+        ].join(";");
+        
         if (routeType === "adventure" && visibleHeritageSites.length > 2) {
           const viaSites = visibleHeritageSites
-            .filter(
-              (site) =>
-                site.id !== startSite?.id &&
-                site.id !== endSite?.id
-            )
-            .slice(0, middleCount + 1);
+          .filter(
+            (site) =>
+              site.name !== startSite?.name &&
+              site.name !== endSite?.name
+          )
+          .slice(0, middleCount);
 
           if (viaSites.length > 0) {
             coordinatesForDirections = [
-              `${startSite.lng},${startSite.lat}`,
+              `${startSite.lng},${startSite.lat}`, 
               ...viaSites.map((site) => `${site.lng},${site.lat}`),
-              `${endSite.lng},${endSite.lat}`,
+              `${endSite.lng},${endSite.lat}`,     
             ].join(";");
           }
         }
-        
 
         const url =
           `https://api.mapbox.com/directions/v5/mapbox/${routeProfile}/` +
@@ -892,9 +1002,7 @@ const [highlightedCue, setHighlightedCue] = useState(null);
 
         const bounds = new mapboxgl.LngLatBounds();
         fallbackRoute.geometry.coordinates.forEach((coord) => bounds.extend(coord));
-        visibleHeritageSites.forEach((site) =>
-          bounds.extend([site.lng, site.lat])
-        );
+        visibleHeritageSites.forEach((site) => bounds.extend([site.lng, site.lat]));
 
         map.fitBounds(bounds, {
           padding: { top: 100, right: 120, bottom: 110, left: 120 },
@@ -918,18 +1026,16 @@ const [highlightedCue, setHighlightedCue] = useState(null);
     mapReady,
     middleCount,
   ]);
-  
+
   useEffect(() => {
     if (!currentRoute || !visibleHeritageSites.length) return;
     if (popupDismissed) return;
     if (selectedHeritage || activePopupSite) return;
 
     const middleSite = visibleHeritageSites.find(
-      (site) =>
-        site.name !== startSite?.name &&
-        site.name !== endSite?.name
+      (site) => site.name !== startSite?.name && site.name !== endSite?.name
     );
-  
+
     if (middleSite) {
       setActivePopupSite(middleSite);
     }
@@ -942,7 +1048,9 @@ const [highlightedCue, setHighlightedCue] = useState(null);
     startSite,
     endSite,
   ]);
-  const popupSite = popupDismissed ? null : (activePopupSite || selectedHeritage);
+
+  const popupSite = popupDismissed ? null : activePopupSite || selectedHeritage;
+
   return (
     <div className="map-view">
       <div className="map-meta">
@@ -952,96 +1060,97 @@ const [highlightedCue, setHighlightedCue] = useState(null);
       <div className="map-overlay top-right">
         <div className="map-badge">
           <strong>
-          {routeType === "adventure" ? "Explore freely" : "Guided exploration"}
+            {routeType === "adventure" ? "Explore freely" : "Guided exploration"}
           </strong>
           <span>{travelMode === "cycle" ? "Cycle" : "Walk"}</span>
         </div>
       </div>
 
       <div className="map-overlay bottom-left">
-  <div className="map-legend-shell">
-    <button
-      type="button"
-      className="legend-button"
-      onClick={() => setLegendOpen((prev) => !prev)}
-    >
-      {legendOpen ? "Hide legend" : "Legend"}
-    </button>
+        <div className="map-legend-shell">
+          <button
+            type="button"
+            className="legend-button"
+            onClick={() => setLegendOpen((prev) => !prev)}
+          >
+            {legendOpen ? "Hide legend" : "Legend"}
+          </button>
 
-    {legendOpen ? (
-      <div className="map-legend">
-        <div className="legend-title">What guides your journey</div>
+          {legendOpen ? (
+            <div className="map-legend">
+              <div className="legend-title">What guides your journey</div>
 
-        <button
-          type="button"
-          className={`legend-toggle ${visibleLayers.heritage ? "active" : ""}`}
-          onClick={() =>
-            setVisibleLayers((prev) => ({
-              ...prev,
-              heritage: !prev.heritage,
-            }))
-          }
-        >
-          <span className="legend-row">
-            <span className="legend-dot heritage" />
-            <span>Heritage sites</span>
-          </span>
-        </button>
+              <button
+                type="button"
+                className={`legend-toggle ${visibleLayers.heritage ? "active" : ""}`}
+                onClick={() =>
+                  setVisibleLayers((prev) => ({
+                    ...prev,
+                    heritage: !prev.heritage,
+                  }))
+                }
+              >
+                <span className="legend-row">
+                  <span className="legend-dot heritage" />
+                  <span>Heritage sites</span>
+                </span>
+              </button>
 
-        {cueCategories
-          .filter(
-            (category) =>
-              category.key !== "heritage" &&
-              ["transit", "shade", "rest", "crossing", "lighting"].includes(category.key)
-          )
-          .map((category) => (
-            <button
-              key={category.key}
-              type="button"
-              className={`legend-toggle ${
-                visibleLayers[category.key] ? "active" : ""
-              }`}
-              onClick={() => {
-                setVisibleLayers((prev) => ({
-                  ...prev,
-                  [category.key]: true,
-                }));
-                setHighlightedCue((prev) =>
-                  prev === category.key ? null : category.key
-                );
-              }}
-            >
-              <span className="legend-row">
-                <span
-                  className="legend-dot"
-                  style={{ backgroundColor: category.color }}
-                />
-                <span>{category.label}</span>
-              </span>
-            </button>
-          ))}
+              {cueCategories
+                .filter(
+                  (category) =>
+                    category.key !== "heritage" &&
+                    ["transit", "shade", "rest", "crossing", "lighting"].includes(
+                      category.key
+                    )
+                )
+                .map((category) => (
+                  <button
+                    key={category.key}
+                    type="button"
+                    className={`legend-toggle ${
+                      visibleLayers[category.key] ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setVisibleLayers((prev) => ({
+                        ...prev,
+                        [category.key]: !prev[category.key],
+                      }));
+                      setHighlightedCue((prev) =>
+                        prev === category.key ? null : category.key
+                      );
+                    }}
+                  >
+                    <span className="legend-row">
+                      <span
+                        className="legend-dot"
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <span>{category.label}</span>
+                    </span>
+                  </button>
+                ))}
+            </div>
+          ) : null}
+        </div>
       </div>
-    ) : null}
-  </div>
-</div>
 
+      <div className="map-overlay bottom-right">
+        <div className="map-story-card">
+          <h4>
+            {routeType === "adventure"
+              ? `Explore by landmark · ${visibleHeritageSites.length} stops`
+              : narrativeCopy.title}
+          </h4>
+          <p>{narrativeCopy.description}</p>
 
-<div className="map-overlay bottom-right">
-  <div className="map-story-card">
-  <h4>
-  {routeType === "adventure"
-    ? `Explore by landmark · ${visibleHeritageSites.length} stops`
-    : narrativeCopy.title}
-</h4>
-    <p>{narrativeCopy.description}</p>
-
-    <div className="story-stats">
-      <span>{visibleHeritageSites.length} stops</span>
-      <span>{cueCount} cues</span>
-      <span>{travelMode === "cycle" ? "Cycle mode" : "Walk mode"}</span>
-    </div>
-  </div>
-</div>
+          <div className="story-stats">
+            <span>{visibleHeritageSites.length} stops</span>
+            <span>{cueCount} cues</span>
+            <span>{travelMode === "cycle" ? "Cycle mode" : "Walk mode"}</span>
+          </div>
+        </div>
+      </div>
 
       {popupSite ? (
         <div className="heritage-popup">
@@ -1058,20 +1167,20 @@ const [highlightedCue, setHighlightedCue] = useState(null);
           </button>
 
           <div className="popup-num">
-          {popupSite?.isCue
-  ? "Cue"
-  : Math.max(
-      1,
-      visibleHeritageSites.findIndex(
-        (site) => site.id === popupSite.id || site.name === popupSite.name
-      ) + 1
-    )}
+            {popupSite?.isCue
+              ? "Cue"
+              : Math.max(
+                  1,
+                  visibleHeritageSites.findIndex(
+                    (site) => site.id === popupSite.id || site.name === popupSite.name
+                  ) + 1
+                )}
           </div>
 
           <div className="popup-img">Story stop</div>
           <div className="popup-meta">
-  {popupSite?.isCue ? "Urban cue" : "Heritage anchor"}
-</div>
+            {popupSite?.isCue ? "Urban cue" : "Heritage anchor"}
+          </div>
           <div className="popup-name">{popupSite.name}</div>
           <div className="popup-desc">
             {popupSite.description ||
