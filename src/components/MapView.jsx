@@ -21,9 +21,18 @@ function createHeritageMarker(
   return el;
 }
 
-function createFeatureMarker(type, prominence = 1, size = "support") {
+function createFeatureMarker(
+  type,
+  prominence = 1,
+  size = "support",
+  isHighlighted = false,
+  isMuted = false
+) {
   const el = document.createElement("div");
-  el.className = `map-feature-marker ${type} prominence-${prominence} size-${size}`;
+  el.className = `map-feature-marker cue-${type} prominence-${prominence} size-${size}${
+    isHighlighted ? " highlighted" : ""
+  }${isMuted ? " muted" : ""}`;
+  el.setAttribute("aria-label", `${type} cue`);
   return el;
 }
 
@@ -76,39 +85,19 @@ function buildFallbackRoute(
   };
 }
 
-function getRoutePaint(routeType) {
-  if (routeType === "adventure") {
-    return {
-      color: "#7c8799",
-      width: 2,
-      opacity: 0.12,
-      dasharray: [2, 2],
-      glowOpacity: 0,
-    };
-  }
-
-  return {
-    color: "#8b95a7",
-    width: 3,
-    opacity: 0.42,
-    dasharray: [1.5, 1.5],
-    glowOpacity: 0.06,
-  };
-}
-
 function getNarrativeCopy(routeType, travelMode) {
   const modeLabel = travelMode === "cycle" ? "cycle" : "walk";
 
   if (routeType === "adventure") {
     return {
-      title: "Cue-led exploration",
-      description: `This ${modeLabel} journey foregrounds environmental cues and a smaller sequence of story stops, encouraging interpretation rather than strict turn-by-turn following.`,
+      title: "Explore by landmark",
+      description: `Use the map, numbered heritage stops, and environmental cues to guide your ${modeLabel}. No fixed route is shown — the journey is yours to interpret.`,
     };
   }
 
   return {
-    title: "Focused cultural connection",
-    description: `This ${modeLabel} route keeps the journey legible and efficient while still surfacing key spatial cues and nearby heritage context.`,
+    title: "Follow nearby heritage",
+    description: `This ${modeLabel} view keeps the destination legible while still encouraging you to navigate through landmarks rather than strict turn-by-turn directions.`,
   };
 }
 
@@ -256,15 +245,15 @@ function buildCueGroups(routeType, routeFeature) {
   };
 
   const limits = {
-    heritage: isAdventure ? 6 : 4,
-    transit: isAdventure ? 8 : 5,
-    shade: isAdventure ? 12 : 6,
-    rest: isAdventure ? 6 : 4,
-    crossing: isAdventure ? 8 : 5,
-    rhythm: isAdventure ? 6 : 4,
-    lighting: isAdventure ? 7 : 4,
-    threshold: isAdventure ? 5 : 3,
-    water: isAdventure ? 4 : 2,
+    heritage: isAdventure ? 6 : 3,
+    transit: isAdventure ? 12 : 4,
+    shade: isAdventure ? 14 : 5,
+    rest: isAdventure ? 8 : 3,
+    crossing: isAdventure ? 10 : 4,
+    rhythm: isAdventure ? 8 : 3,
+    lighting: isAdventure ? 10 : 4,
+    threshold: isAdventure ? 8 : 3,
+    water: isAdventure ? 5 : 2,
   };
 
   function prepareItems(items, threshold) {
@@ -366,29 +355,37 @@ function buildCueCorridorGeoJSON(cueGroups, routeFeature, routeType) {
   if (coordinates.length >= 2) {
     const generatedPoints = interpolatePointsAlongRoute(
       coordinates,
-      routeType === "adventure" ? 18 : 12
+      routeType === "adventure" ? 16 : 10
     );
 
     const generatedTypes =
-      routeType === "adventure"
-        ? ["shade", "lighting", "rhythm", "threshold", "water"]
-        : ["transit", "crossing", "shade"];
+    routeType === "adventure"
+      ? ["transit", "shade", "crossing", "rest", "lighting", "shade"]
+      : ["transit", "crossing", "shade"];
 
-    generatedPoints.forEach((coord, index) => {
-      const type = generatedTypes[index % generatedTypes.length];
+      generatedPoints.forEach((coord, index) => {
+        const type = generatedTypes[index % generatedTypes.length];
+      
+        const spread =
+          routeType === "adventure"
+            ? 0.0016
+            : 0.0008;
+      
+            const lngOffset = (Math.random() - 0.5) * spread * 2;
+            const latOffset = (Math.random() - 0.5) * spread * 0.6;
 
-      features.push({
-        type: "Feature",
-        properties: {
-          type,
-          generated: true,
-        },
-        geometry: {
-          type: "Point",
-          coordinates: coord,
-        },
+        features.push({
+          type: "Feature",
+          properties: {
+            type,
+            generated: true,
+          },
+          geometry: {
+            type: "Point",
+            coordinates: [coord[0] + lngOffset, coord[1] + latOffset],
+          },
+        });
       });
-    });
   }
 
   return {
@@ -415,8 +412,13 @@ export default function MapView({
   const featureMarkersRef = useRef([]);
   const [mapReady, setMapReady] = useState(false);
   const [currentRoute, setCurrentRoute] = useState(null);
-  const [activePopupSite, setActivePopupSite] = useState(null);
+const [activePopupSite, setActivePopupSite] = useState(null);
+const [popupDismissed, setPopupDismissed] = useState(false);
+const [legendOpen, setLegendOpen] = useState(false);
+  
+  ;
 
+const [highlightedCue, setHighlightedCue] = useState(null);
   const [visibleLayers, setVisibleLayers] = useState({
     heritage: true,
     transit: true,
@@ -434,25 +436,34 @@ export default function MapView({
     [travelMode]
   );
 
-  const routePaint = useMemo(() => getRoutePaint(routeType), [routeType]);
   const narrativeCopy = useMemo(
     () => getNarrativeCopy(routeType, travelMode),
     [routeType, travelMode]
   );
+
+  const middleCount = useMemo(() => {
+    const minutes = timeMinutes < 10 ? timeMinutes * 60 : timeMinutes;
+  
+    if (routeType !== "adventure") return 1;
+    if (minutes <= 30) return 1;
+    if (minutes <= 60) return 2;
+    if (minutes <= 120) return 3;
+    if (minutes <= 180) return 4;
+    return 5;
+  }, [routeType, timeMinutes]);
 
   const visibleHeritageSites = useMemo(() => {
     if (!startSite || !endSite) return [];
   
     const startAndEnd = [startSite, endSite].filter(Boolean);
   
-    if (routeType === "direct") {
-      return startAndEnd.filter(
+    const uniqueSites = (sites) =>
+      sites.filter(
         (site, index, arr) =>
           arr.findIndex((s) => s.name === site.name) === index
       );
-    }
   
-    const otherSites = heritageSites
+    const rankedSites = heritageSites
       .filter(
         (site) =>
           site.name !== startSite.name &&
@@ -469,21 +480,20 @@ export default function MapView({
           site.lat - endSite.lat
         );
   
+        const routeBalance = Math.abs(distToStart - distToEnd);
+  
         return {
           ...site,
           distToStart,
           distToEnd,
+          routeBalance,
         };
       })
-      .filter((site) => site.distToStart > 0.004 && site.distToEnd > 0.004)
       .sort((a, b) => {
         if ((b.cueWeight || 0) !== (a.cueWeight || 0)) {
           return (b.cueWeight || 0) - (a.cueWeight || 0);
         }
-        return (
-          Math.min(a.distToStart, a.distToEnd) -
-          Math.min(b.distToStart, b.distToEnd)
-        );
+        return a.routeBalance - b.routeBalance;
       });
   
     const routeLength = Math.hypot(
@@ -491,29 +501,18 @@ export default function MapView({
       endSite.lat - startSite.lat
     );
   
-    const middleCount = routeLength < 0.02 ? 1 : 2;
+    if (routeType === "direct") {
+      const guidedCount =
+        routeLength < 0.015 ? 0 :
+        routeLength < 0.03 ? 1 :
+        2;
   
-    const middleAnchors = [];
-    for (const site of otherSites) {
-      const tooCloseToExisting = middleAnchors.some(
-        (picked) =>
-          Math.hypot(site.lng - picked.lng, site.lat - picked.lat) < 0.005
-      );
-  
-      if (!tooCloseToExisting) {
-        middleAnchors.push(site);
-      }
-  
-      if (middleAnchors.length >= middleCount) break;
+      return uniqueSites([...startAndEnd, ...rankedSites.slice(0, guidedCount)]);
     }
   
-    return [...startAndEnd, ...middleAnchors].filter(
-      (site, index, arr) =>
-        arr.findIndex((s) => s.name === site.name) === index
-    );
-  }, [heritageSites, routeType, startSite, endSite]);
+    return uniqueSites([...startAndEnd, ...rankedSites.slice(0, middleCount)]);
+  }, [heritageSites, routeType, startSite, endSite, middleCount]);
 
-  
   const cueGroups = useMemo(
     () => buildCueGroups(routeType, currentRoute),
     [routeType, currentRoute]
@@ -523,6 +522,35 @@ export default function MapView({
     () => cueGroups.reduce((sum, group) => sum + group.items.length, 0),
     [cueGroups]
   );
+  
+  useEffect(() => {
+    console.log("routeType =", routeType);
+    console.log("timeMinutes =", timeMinutes);
+    console.log("middleCount =", middleCount);
+    console.log(
+      "visibleHeritageSites =",
+      visibleHeritageSites.map((site) => site.name)
+    );
+    console.log(
+      "all adventure candidates =",
+      heritageSites
+        .filter(
+          (site) =>
+            site.name !== startSite?.name &&
+            site.name !== endSite?.name &&
+            site.adventure
+        )
+        .map((site) => site.name)
+    );
+  }, [
+    routeType,
+    timeMinutes,
+    middleCount,
+    visibleHeritageSites,
+    heritageSites,
+    startSite,
+    endSite,
+  ]);
 
   useEffect(() => {
     if (!MAPBOX_TOKEN || mapRef.current || !mapContainerRef.current) return;
@@ -594,44 +622,22 @@ export default function MapView({
             "rhythm", "#C58B00",
             "#999999",
           ],
-          "circle-opacity": 0.18,
-          "circle-blur": 1.0,
+          "circle-opacity": [
+            "case",
+            ["==", ["get", "type"], highlightedCue],
+            0.32,
+            0.05
+          ],
+          "circle-blur": [
+            "case",
+            ["==", ["get", "type"], highlightedCue],
+            1.2,
+            0.8
+          ],
           "circle-stroke-width": 0,
         },
       });
 
-      map.addLayer({
-        id: "route-line-glow",
-        type: "line",
-        source: "route",
-        paint: {
-          "line-color": routePaint.color,
-          "line-width": routePaint.width + 6,
-          "line-opacity": routePaint.glowOpacity,
-        },
-        layout: {
-          "line-cap": "round",
-          "line-join": "round",
-          visibility: routeType === "direct" ? "visible" : "none",
-        },
-      });
-
-      map.addLayer({
-        id: "route-line",
-        type: "line",
-        source: "route",
-        paint: {
-          "line-color": routePaint.color,
-          "line-width": routePaint.width + 2,
-          "line-opacity": routePaint.opacity,
-          "line-dasharray": routePaint.dasharray,
-        },
-        layout: {
-          "line-cap": "round",
-          "line-join": "round",
-          visibility: routeType === "direct" ? "visible" : "none",
-        },
-      });
 
       setMapReady(true);
     });
@@ -650,37 +656,8 @@ export default function MapView({
       map.remove();
       mapRef.current = null;
     };
-  }, [
-    routePaint.color,
-    routePaint.width,
-    routePaint.opacity,
-    routePaint.glowOpacity,
-    routePaint.dasharray,
-    routeType,
-  ]);
+  }, []);
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-    if (!map.getLayer("route-line") || !map.getLayer("route-line-glow")) return;
-
-    map.setPaintProperty("route-line-glow", "line-color", routePaint.color);
-    map.setPaintProperty("route-line-glow", "line-width", routePaint.width + 6);
-    map.setPaintProperty(
-      "route-line-glow",
-      "line-opacity",
-      routePaint.glowOpacity
-    );
-
-    map.setPaintProperty("route-line", "line-color", routePaint.color);
-    map.setPaintProperty("route-line", "line-width", routePaint.width);
-    map.setPaintProperty("route-line", "line-opacity", routePaint.opacity);
-    map.setPaintProperty("route-line", "line-dasharray", routePaint.dasharray);
-
-    const visibility = routeType === "direct" ? "visible" : "none";
-    map.setLayoutProperty("route-line", "visibility", visibility);
-    map.setLayoutProperty("route-line-glow", "visibility", visibility);
-  }, [routePaint, routeType, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -690,16 +667,35 @@ export default function MapView({
     if (!source) return;
   
     const visibleCueGroups = cueGroups
-      .filter((group) => visibleLayers[group.key])
-      .map((group) => ({
-        ...group,
-        items: group.items,
-      }));
+      .filter((group) => visibleLayers[group.key]);
   
     source.setData(
       buildCueCorridorGeoJSON(visibleCueGroups, currentRoute, routeType)
     );
-  }, [cueGroups, visibleLayers, currentRoute, routeType, mapReady]);
+  
+   
+    if (map.getLayer("cue-halo")) {
+      if (highlightedCue) {
+        map.setPaintProperty("cue-halo", "circle-opacity", [
+          "case",
+          ["==", ["get", "type"], highlightedCue],
+          0.28,   
+          0.06    
+        ]);
+      } else {
+        map.setPaintProperty("cue-halo", "circle-opacity", 0.18);
+      }
+    }
+  
+  }, [
+    cueGroups,
+    visibleLayers,
+    currentRoute,
+    routeType,
+    mapReady,
+    highlightedCue 
+  ]);
+
 
 
   useEffect(() => {
@@ -720,9 +716,9 @@ export default function MapView({
 
       el.addEventListener("click", () => {
         onSelectHeritage?.(site);
+        setPopupDismissed(false);
         setActivePopupSite(site);
       });
-
       const marker = new mapboxgl.Marker({
         element: el,
         anchor: "center",
@@ -749,27 +745,47 @@ export default function MapView({
     featureMarkersRef.current.forEach((marker) => marker.remove());
     featureMarkersRef.current = [];
 
-    cueGroups.forEach(({ items, type, key }) => {
+    cueGroups.forEach(({ items, type, key, label }) => {
       if (!visibleLayers[key]) return;
-
+    
       items.forEach((item) => {
+        const isHighlighted = highlightedCue === key;
+        const isMuted = highlightedCue !== null && highlightedCue !== key;
+    
         const el = createFeatureMarker(
           type,
           item.prominence || 1,
-          item.size || "support"
+          item.size || "support",
+          isHighlighted,
+          isMuted
         );
-
+    
+        el.addEventListener("click", () => {
+          setHighlightedCue((prev) => (prev === key ? null : key));
+          setPopupDismissed(false);
+        
+          setActivePopupSite({
+            id: `cue-${item.id || `${item.lng}-${item.lat}`}`,
+            name: item.name || label,
+            description:
+              item.description ||
+              `${label} can help guide attention through the journey without relying on turn-by-turn instruction.`,
+            lng: item.lng,
+            lat: item.lat,
+            isCue: true,
+          });
+        });
         const marker = new mapboxgl.Marker({
           element: el,
           anchor: "center",
         })
           .setLngLat([item.lng, item.lat])
           .addTo(map);
-
+    
         featureMarkersRef.current.push(marker);
       });
     });
-  }, [cueGroups, mapReady, visibleLayers]);
+  }, [cueGroups, mapReady, visibleLayers, highlightedCue]);
 
   useEffect(() => {
     const focusSite = selectedHeritage || activePopupSite;
@@ -792,8 +808,9 @@ export default function MapView({
   }, [selectedHeritage]);
 
   useEffect(() => {
+    setPopupDismissed(false);
     setActivePopupSite(null);
-  }, [startSite, endSite, routeType]);
+  }, [startSite, endSite, routeType, timeMinutes]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -808,9 +825,11 @@ export default function MapView({
         if (routeType === "adventure" && visibleHeritageSites.length > 2) {
           const viaSites = visibleHeritageSites
             .filter(
-              (site) => site.name !== startSite.name && site.name !== endSite.name
+              (site) =>
+                site.id !== startSite?.id &&
+                site.id !== endSite?.id
             )
-            .slice(0, 1);
+            .slice(0, middleCount + 1);
 
           if (viaSites.length > 0) {
             coordinatesForDirections = [
@@ -820,6 +839,7 @@ export default function MapView({
             ].join(";");
           }
         }
+        
 
         const url =
           `https://api.mapbox.com/directions/v5/mapbox/${routeProfile}/` +
@@ -896,10 +916,33 @@ export default function MapView({
     routeProfile,
     routeType,
     mapReady,
+    middleCount,
   ]);
+  
+  useEffect(() => {
+    if (!currentRoute || !visibleHeritageSites.length) return;
+    if (popupDismissed) return;
+    if (selectedHeritage || activePopupSite) return;
 
-  const popupSite = activePopupSite || selectedHeritage;
-
+    const middleSite = visibleHeritageSites.find(
+      (site) =>
+        site.name !== startSite?.name &&
+        site.name !== endSite?.name
+    );
+  
+    if (middleSite) {
+      setActivePopupSite(middleSite);
+    }
+  }, [
+    currentRoute,
+    visibleHeritageSites,
+    selectedHeritage,
+    activePopupSite,
+    popupDismissed,
+    startSite,
+    endSite,
+  ]);
+  const popupSite = popupDismissed ? null : (activePopupSite || selectedHeritage);
   return (
     <div className="map-view">
       <div className="map-meta">
@@ -909,100 +952,130 @@ export default function MapView({
       <div className="map-overlay top-right">
         <div className="map-badge">
           <strong>
-            {routeType === "adventure" ? "Adventure Route" : "Direct Route"}
+          {routeType === "adventure" ? "Explore freely" : "Guided exploration"}
           </strong>
           <span>{travelMode === "cycle" ? "Cycle" : "Walk"}</span>
         </div>
       </div>
 
       <div className="map-overlay bottom-left">
-        <div className="map-legend">
-          <div className="legend-title">Spatial cues</div>
+  <div className="map-legend-shell">
+    <button
+      type="button"
+      className="legend-button"
+      onClick={() => setLegendOpen((prev) => !prev)}
+    >
+      {legendOpen ? "Hide legend" : "Legend"}
+    </button>
 
-          <button
-            type="button"
-            className={`legend-toggle ${visibleLayers.heritage ? "active" : ""}`}
-            onClick={() =>
-              setVisibleLayers((prev) => ({
-                ...prev,
-                heritage: !prev.heritage,
-              }))
-            }
-          >
-            <span className="legend-row">
-              <span className="legend-dot heritage" />
-              <span>Heritage anchors</span>
-            </span>
-          </button>
+    {legendOpen ? (
+      <div className="map-legend">
+        <div className="legend-title">What guides your journey</div>
 
-          {cueCategories
-            .filter((category) => category.key !== "heritage")
-            .map((category) => (
-              <button
-                key={category.key}
-                type="button"
-                className={`legend-toggle ${
-                  visibleLayers[category.key] ? "active" : ""
-                }`}
-                onClick={() =>
-                  setVisibleLayers((prev) => ({
-                    ...prev,
-                    [category.key]: !prev[category.key],
-                  }))
-                }
-              >
-                <span className="legend-row">
-                  <span
-                    className="legend-dot"
-                    style={{ backgroundColor: category.color }}
-                  />
-                  <span>{category.label}</span>
-                </span>
-              </button>
-            ))}
-        </div>
+        <button
+          type="button"
+          className={`legend-toggle ${visibleLayers.heritage ? "active" : ""}`}
+          onClick={() =>
+            setVisibleLayers((prev) => ({
+              ...prev,
+              heritage: !prev.heritage,
+            }))
+          }
+        >
+          <span className="legend-row">
+            <span className="legend-dot heritage" />
+            <span>Heritage sites</span>
+          </span>
+        </button>
+
+        {cueCategories
+          .filter(
+            (category) =>
+              category.key !== "heritage" &&
+              ["transit", "shade", "rest", "crossing", "lighting"].includes(category.key)
+          )
+          .map((category) => (
+            <button
+              key={category.key}
+              type="button"
+              className={`legend-toggle ${
+                visibleLayers[category.key] ? "active" : ""
+              }`}
+              onClick={() => {
+                setVisibleLayers((prev) => ({
+                  ...prev,
+                  [category.key]: true,
+                }));
+                setHighlightedCue((prev) =>
+                  prev === category.key ? null : category.key
+                );
+              }}
+            >
+              <span className="legend-row">
+                <span
+                  className="legend-dot"
+                  style={{ backgroundColor: category.color }}
+                />
+                <span>{category.label}</span>
+              </span>
+            </button>
+          ))}
       </div>
+    ) : null}
+  </div>
+</div>
 
-      <div className="map-overlay bottom-right">
-        <div className="map-story-card">
-          <h4>{narrativeCopy.title}</h4>
-          <p>{narrativeCopy.description}</p>
 
-          <div className="story-stats">
-            <span>{stats?.distance || "—"}</span>
-            <span>{visibleHeritageSites.length} stops</span>
-            <span>{cueCount} cues</span>
-            <span>{stats?.durationText || `${timeMinutes} min`}</span>
-          </div>
-        </div>
-      </div>
+<div className="map-overlay bottom-right">
+  <div className="map-story-card">
+  <h4>
+  {routeType === "adventure"
+    ? `Explore by landmark · ${visibleHeritageSites.length} stops`
+    : narrativeCopy.title}
+</h4>
+    <p>{narrativeCopy.description}</p>
+
+    <div className="story-stats">
+      <span>{visibleHeritageSites.length} stops</span>
+      <span>{cueCount} cues</span>
+      <span>{travelMode === "cycle" ? "Cycle mode" : "Walk mode"}</span>
+    </div>
+  </div>
+</div>
 
       {popupSite ? (
         <div className="heritage-popup">
           <button
             type="button"
             className="popup-close"
-            onClick={() => setActivePopupSite(null)}
+            onClick={() => {
+              setPopupDismissed(true);
+              setActivePopupSite(null);
+            }}
             aria-label="Close story popup"
           >
             ×
           </button>
 
           <div className="popup-num">
-            {Math.max(
-              1,
-              visibleHeritageSites.findIndex(
-                (site) => site.id === popupSite.id || site.name === popupSite.name
-              ) + 1
-            )}
+          {popupSite?.isCue
+  ? "Cue"
+  : Math.max(
+      1,
+      visibleHeritageSites.findIndex(
+        (site) => site.id === popupSite.id || site.name === popupSite.name
+      ) + 1
+    )}
           </div>
 
           <div className="popup-img">Story stop</div>
-          <div className="popup-meta">Heritage anchor</div>
+          <div className="popup-meta">
+  {popupSite?.isCue ? "Urban cue" : "Heritage anchor"}
+</div>
           <div className="popup-name">{popupSite.name}</div>
           <div className="popup-desc">
             {popupSite.description ||
-              "This stop adds cultural context to the route and helps frame the journey as a spatial story rather than a simple connection."}
+              "This place turns the journey into a spatial story, using the city itself as a guide rather than relying on turn-by-turn instruction."}
           </div>
 
           <button
@@ -1010,7 +1083,7 @@ export default function MapView({
             className="popup-link"
             onClick={() => onSelectHeritage?.(popupSite)}
           >
-            Focus this stop
+            {popupSite?.isCue ? "Use this cue" : "Explore this place"}
           </button>
         </div>
       ) : null}

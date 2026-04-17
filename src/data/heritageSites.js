@@ -1,30 +1,6 @@
 export const heritageSites = [
   {
     id: 1,
-    name: "St Pancras Old Church",
-    period: "Early Christian / Medieval",
-    description:
-      "One of the oldest Christian sites in England, associated with early parish history, burial grounds, and quieter reflective urban space.",
-    lat: 51.5306,
-    lng: -0.1259,
-    startEnd: true,
-    adventure: true,
-    cueWeight: 2,
-  },
-  {
-    id: 2,
-    name: "British Library",
-    period: "Modern cultural institution",
-    description:
-      "A major national library and knowledge landmark closely linked to student research and everyday academic life around King's Cross and Bloomsbury.",
-    lat: 51.5299,
-    lng: -0.1275,
-    startEnd: true,
-    adventure: true,
-    cueWeight: 3,
-  },
-  {
-    id: 3,
     name: "Camden Lock",
     period: "Industrial heritage",
     description:
@@ -32,23 +8,59 @@ export const heritageSites = [
     lat: 51.5414,
     lng: -0.1455,
     startEnd: true,
-    adventure: true,
+    adventure: false,
     cueWeight: 2,
   },
   {
+    id: 2,
+    name: "St Pancras Old Church",
+    period: "Early Christian / Medieval",
+    description:
+      "One of the oldest Christian sites in England, associated with early parish history, burial grounds, and quieter reflective urban space.",
+    lat: 51.5306,
+    lng: -0.1259,
+    startEnd: true,
+    adventure: false,
+    cueWeight: 2,
+  },
+  {
+    id: 3,
+    name: "British Library",
+    period: "Modern cultural institution",
+    description:
+      "A major national library and knowledge landmark closely linked to student research and everyday academic life around King's Cross and Bloomsbury.",
+    lat: 51.5299,
+    lng: -0.1275,
+    startEnd: true,
+    adventure: false,
+    cueWeight: 3,
+  },
+  {
     id: 4,
+    name: "British Museum",
+    period: "18th century onwards",
+    description:
+      "A major civic and cultural landmark whose collections shaped London's role in global heritage narratives.",
+    lat: 51.5194,
+    lng: -0.1269,
+    startEnd: true,
+    adventure: false,
+    cueWeight: 3,
+  },
+  {
+    id: 5,
     name: "King's Cross Station",
     period: "Victorian transport infrastructure",
     description:
       "A major railway landmark representing London's industrial expansion, mobility networks, and large-scale urban regeneration.",
     lat: 51.5308,
     lng: -0.1238,
-    startEnd: true,
+    startEnd: false,
     adventure: true,
     cueWeight: 3,
   },
   {
-    id: 5,
+    id: 6,
     name: "The Foundling Museum",
     period: "18th century social history",
     description:
@@ -60,7 +72,7 @@ export const heritageSites = [
     cueWeight: 2,
   },
   {
-    id: 6,
+    id: 7,
     name: "Charles Dickens Museum",
     period: "19th century literary heritage",
     description:
@@ -72,27 +84,39 @@ export const heritageSites = [
     cueWeight: 2,
   },
   {
-    id: 7,
+    id: 8,
     name: "Senate House",
     period: "Art Deco, 1930s",
     description:
       "An iconic academic building closely associated with Bloomsbury, UCL, and twentieth-century institutional London.",
     lat: 51.5247,
     lng: -0.1293,
-    startEnd: true,
+    startEnd: false,
     adventure: true,
     cueWeight: 2,
   },
   {
-    id: 8,
-    name: "British Museum",
-    period: "18th century onwards",
+    id: 9,
+    name: "Granary Square",
+    period: "Post-industrial regeneration",
     description:
-      "A major civic and cultural landmark whose collections shaped London's role in global heritage narratives.",
-    lat: 51.5194,
-    lng: -0.1269,
-    startEnd: true,
+      "A contemporary public square shaped by King's Cross redevelopment, where former industrial infrastructure has been reworked into a civic cultural landscape.",
+    lat: 51.5357,
+    lng: -0.1258,
+    startEnd: false,
     adventure: true,
     cueWeight: 3,
+  },
+  {
+    id: 10,
+    name: "Brunswick Centre",
+    period: "Modernist architecture, 1960s–70s",
+    description:
+      "A distinctive modernist complex linking housing, retail, and pedestrian circulation, adding a different architectural and urban rhythm to Bloomsbury.",
+    lat: 51.5232,
+    lng: -0.1233,
+    startEnd: false,
+    adventure: true,
+    cueWeight: 2,
   },
 ];
