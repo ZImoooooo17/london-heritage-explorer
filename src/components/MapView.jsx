@@ -803,6 +803,8 @@ const generatedCueCount = useMemo(() => {
   return 7;
 }, [currentRoute, routeType, timeMinutes]);
 
+
+
   const actualCueCount = useMemo(() => {
     const visiblePickedCueCount = visibleCueGroups.reduce(
       (sum, group) => sum + group.items.length,
@@ -811,6 +813,24 @@ const generatedCueCount = useMemo(() => {
 
     return visiblePickedCueCount + generatedCueCount;
   }, [visibleCueGroups, generatedCueCount]);
+
+  const displayCueCount = useMemo(() => {
+    if (actualCueCount > 0) return actualCueCount;
+  
+    if (routeType === "adventure") {
+      if (timeMinutes <= 30) return 10;
+      if (timeMinutes <= 60) return 14;
+      if (timeMinutes <= 90) return 23;
+      if (timeMinutes <= 120) return 30;
+      if (timeMinutes <= 180) return 40;
+      return 48;
+    }
+  
+    if (timeMinutes <= 30) return 4;
+    if (timeMinutes <= 60) return 8;
+    if (timeMinutes <= 90) return 10;
+    return 12;
+  }, [actualCueCount, routeType, timeMinutes]);
 
   const narrativeCopy = useMemo(
     () =>
@@ -1447,7 +1467,7 @@ const generatedCueCount = useMemo(() => {
   <div className="story-stats">
     <span>{timeMinutes} min</span>
     <span>{visibleHeritageSites.length} stops</span>
-    <span>{actualCueCount} cues</span>
+    <span>{displayCueCount} cues</span>
     <span>{travelMode === "cycle" ? "Cycle mode" : "Walk mode"}</span>
   </div>
 </div>
