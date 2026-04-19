@@ -3,6 +3,7 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { cues, cueCategories } from "../data/cues";
 import NarrativePanel from "../panel/NarrativePanel";
+import SegmentLayer from "./SegmentLayer";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const LONDON_CENTER = [-0.131, 51.5205];
@@ -642,6 +643,23 @@ function buildCueCorridorGeoJSON(
   };
 }
 
+function getCueKeysForStepType(stepType) {
+  switch (stepType) {
+    case "start":
+      return ["heritage", "threshold", "shade"];
+    case "orientation":
+      return ["transit", "crossing", "threshold"];
+    case "intensity":
+      return ["heritage", "transit", "lighting"];
+    case "transition":
+      return ["rest", "shade", "threshold"];
+    case "arrival":
+      return ["heritage", "rest", "lighting"];
+    default:
+      return [];
+  }
+}
+
 export default function MapView({
   startSite,
   endSite,
@@ -711,6 +729,10 @@ export default function MapView({
     () => cueGroups.filter((group) => visibleLayers[group.key]),
     [cueGroups, visibleLayers]
   );
+
+  const activeCueKeys = useMemo(() => {
+    return getCueKeysForStepType(selectedNarrativeStep?.type);
+  }, [selectedNarrativeStep]);
 
 const generatedCueCount = useMemo(() => {
   if (!currentRoute?.geometry?.coordinates?.length) return 0;
@@ -846,8 +868,8 @@ const generatedCueCount = useMemo(() => {
         },
         paint: {
           "line-color": "#7c3aed",
-          "line-width": 4.8,
-          "line-opacity": 0.82,
+          "line-width": 2.8,
+          "line-opacity": 0.28,
           "line-dasharray": [1.2, 1.8],
         },
       });
@@ -860,15 +882,15 @@ const generatedCueCount = useMemo(() => {
           "circle-radius": [
             "match",
             ["get", "type"],
-            "shade", 34,
-            "water", 30,
-            "lighting", 24,
-            "transit", 22,
-            "crossing", 20,
-            "rest", 18,
-            "threshold", 20,
-            "rhythm", 18,
-            18,
+            "shade", 38,
+            "water", 34,
+            "lighting", 28,
+            "transit", 26,
+            "crossing", 24,
+            "rest", 22,
+            "threshold", 24,
+            "rhythm", 22,
+            22,
           ],
           "circle-color": [
             "match",
@@ -1017,17 +1039,17 @@ const generatedCueCount = useMemo(() => {
     if (map.getLayer("route-line")) {
       if (routeType === "adventure") {
         map.setPaintProperty("route-line", "line-color", "#7c3aed");
-        map.setPaintProperty("route-line", "line-opacity", 0.82);
-        map.setPaintProperty("route-line", "line-width", 4.8);
+        map.setPaintProperty("route-line", "line-opacity", 0.28);
+        map.setPaintProperty("route-line", "line-width", 2.8);
         map.setPaintProperty("route-line", "line-dasharray", [1.2, 1.8]);
       } else {
         map.setPaintProperty("route-line", "line-color", "#2563eb");
-        map.setPaintProperty("route-line", "line-opacity", 0.78);
-        map.setPaintProperty("route-line", "line-width", 3.8);
+        map.setPaintProperty("route-line", "line-opacity", 0.22);
+        map.setPaintProperty("route-line", "line-width", 2.4);
         map.setPaintProperty("route-line", "line-dasharray", [1, 0]);
       }
     }
-  
+    
     if (map.getLayer("route-corridor")) {
       map.setPaintProperty(
         "route-corridor",
@@ -1037,12 +1059,12 @@ const generatedCueCount = useMemo(() => {
       map.setPaintProperty(
         "route-corridor",
         "line-opacity",
-        routeType === "adventure" ? 0.14 : 0.08
+        routeType === "adventure" ? 0.08 : 0.05
       );
       map.setPaintProperty(
         "route-corridor",
         "line-width",
-        routeType === "adventure" ? 26 : 14
+        routeType === "adventure" ? 16 : 10
       );
     }
   }, [routeType, mapReady]);
@@ -1050,43 +1072,102 @@ const generatedCueCount = useMemo(() => {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-
+  
     const visibleKeys = Object.entries(visibleLayers)
       .filter(([key, value]) => key !== "heritage" && value)
       .map(([key]) => key);
-
+  
     const baseFilter =
       visibleKeys.length > 0
         ? ["in", ["get", "type"], ["literal", visibleKeys]]
         : ["==", ["get", "type"], "__none__"];
-
-    const highlightedFilter =
+  
+    const emphasizedKeys =
       highlightedCue && visibleLayers[highlightedCue]
-        ? ["==", ["get", "type"], highlightedCue]
-        : baseFilter;
-
+        ? [highlightedCue]
+        : activeCueKeys.filter((key) => visibleLayers[key]);
+  
     if (map.getLayer("cue-halo")) {
       map.setFilter("cue-halo", baseFilter);
-
+  
       map.setPaintProperty(
         "cue-halo",
         "circle-opacity",
-        highlightedCue ? 0.3 : routeType === "adventure" ? 0.22 : 0.16
+        emphasizedKeys.length
+          ? [
+              "match",
+              ["get", "type"],
+              ["literal", emphasizedKeys],
+              0.42,
+              0.05,
+            ]
+          : routeType === "adventure"
+          ? 0.18
+          : 0.12
+      );
+  
+      map.setPaintProperty(
+        "cue-halo",
+        "circle-radius",
+        emphasizedKeys.length
+          ? [
+              "case",
+              ["match", ["get", "type"], ["literal", emphasizedKeys], true, false],
+              [
+                "match",
+                ["get", "type"],
+                "shade", 38,
+                "water", 34,
+                "lighting", 28,
+                "transit", 26,
+                "crossing", 24,
+                "rest", 22,
+                "threshold", 24,
+                "rhythm", 22,
+                22,
+              ],
+              [
+                "match",
+                ["get", "type"],
+                "shade", 20,
+                "water", 18,
+                "lighting", 15,
+                "transit", 14,
+                "crossing", 12,
+                "rest", 10,
+                "threshold", 12,
+                "rhythm", 10,
+                10,
+              ],
+            ]
+          : [
+              "match",
+              ["get", "type"],
+              "shade", 30,
+              "water", 26,
+              "lighting", 22,
+              "transit", 20,
+              "crossing", 18,
+              "rest", 16,
+              "threshold", 18,
+              "rhythm", 16,
+              16,
+            ]
       );
     }
-
+  
     if (map.getLayer("cue-core")) {
-      map.setFilter("cue-core", highlightedFilter);
-
+      map.setFilter("cue-core", baseFilter);
+  
       map.setPaintProperty(
         "cue-core",
         "circle-opacity",
-        highlightedCue
+        emphasizedKeys.length
           ? [
               "case",
-              ["==", ["get", "generated"], true],
-              0.22,
-              0.55,
+              ["match", ["get", "type"], ["literal", emphasizedKeys], true, false],
+              ["case", ["==", ["get", "generated"], true], 0.5, 1],
+              ["case", ["==", ["get", "generated"], true], 0.05, 0.16],
             ]
           : [
               "case",
@@ -1095,8 +1176,55 @@ const generatedCueCount = useMemo(() => {
               0.42,
             ]
       );
+  
+      map.setPaintProperty(
+        "cue-core",
+        "circle-radius",
+        emphasizedKeys.length
+          ? [
+              "case",
+              ["match", ["get", "type"], ["literal", emphasizedKeys], true, false],
+              [
+                "case",
+                ["==", ["get", "generated"], true],
+                5,
+                [
+                  "match",
+                  ["get", "type"],
+                  "threshold", 10,
+                  "transit", 9,
+                  "lighting", 9,
+                  8,
+                ],
+              ],
+              [
+                "case",
+                ["==", ["get", "generated"], true],
+                2,
+                [
+                  "match",
+                  ["get", "type"],
+                  "threshold", 4,
+                  "transit", 3,
+                  3,
+                ],
+              ],
+            ]
+          : [
+              "case",
+              ["==", ["get", "generated"], true],
+              3,
+              [
+                "match",
+                ["get", "type"],
+                "threshold", 7,
+                "transit", 6,
+                5,
+              ],
+            ]
+      );
     }
-  }, [visibleLayers, highlightedCue, routeType, mapReady]);
+  }, [visibleLayers, highlightedCue, activeCueKeys, routeType, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1487,6 +1615,14 @@ const generatedCueCount = useMemo(() => {
           </button>
         </div>
       ) : null}
+
+      <SegmentLayer
+  map={mapRef.current}
+  mapReady={mapReady}
+  currentRoute={currentRoute}
+  narrativeSteps={narrativeSteps}
+  selectedNarrativeStep={selectedNarrativeStep}
+/>
 
       <div ref={mapContainerRef} className="mapbox-map" />
     </div>
