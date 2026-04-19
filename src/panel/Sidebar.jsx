@@ -36,11 +36,10 @@ export default function Sidebar({
   timeMinutes,
   handleTimeChange,
   timeStep = 30,
-  stats,
   locations = [],
-  visibleHeritageSites = [],
+  routeStops = [],
   selectedHeritage,
-  onSelectHeritage,
+  setSelectedHeritage,
 }) {
   return (
     <aside className="sidebar">
@@ -190,34 +189,36 @@ export default function Sidebar({
           <h3>Landmarks</h3>
           <p>Tap a place to uncover its story.</p>
 
-          <div className="landmark-list">
-            {visibleHeritageSites.length > 0 ? (
-              visibleHeritageSites.map((site, index) => (
-                <div
+          {routeStops.length > 0 ? (
+            <div className="landmark-list">
+              {routeStops.map((site, index) => (
+                <button
                   key={site.id || site.name}
+                  type="button"
                   className={`landmark-row ${
-                    selectedHeritage?.name === site.name ? "active" : ""
+                    selectedHeritage?.id === site.id ? "active" : ""
                   }`}
-                  onClick={() => onSelectHeritage?.(site)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      onSelectHeritage?.(site);
-                    }
-                  }}
+                  onClick={() => setSelectedHeritage?.(site)}
                 >
                   <span className="landmark-number">{index + 1}</span>
-                  <div className="landmark-copy">
-                    <div className="landmark-name">{site.name}</div>
-                    <div className="landmark-meta">{site.period}</div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="empty-state">No landmarks available.</p>
-            )}
-          </div>
+
+                  <span className="landmark-copy">
+                    <span className="landmark-name">{site.name}</span>
+                    <span className="landmark-meta">
+                      {site.period || site.category || "Heritage stop"}
+                    </span>
+                    <span className="landmark-desc">
+                      {site.shortDescription ||
+                        site.description ||
+                        "Part of the current route story."}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-state">No landmarks available for this route.</p>
+          )}
         </div>
       )}
     </aside>

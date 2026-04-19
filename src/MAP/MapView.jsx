@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-
 import { cues, cueCategories } from "../data/cues";
+import NarrativePanel from "../panel/NarrativePanel";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const LONDON_CENTER = [-0.131, 51.5205];
@@ -646,13 +646,19 @@ export default function MapView({
   startSite,
   endSite,
   heritageSites = [],
+  routeStops = [],
   travelMode = "walk",
   routeType = "direct",
   timeMinutes = 90,
-  stats = null,
+  stats = {},
   onSelectHeritage,
   selectedHeritage,
+  narrativeSteps = [],
+  selectedNarrativeStep,
+  setSelectedNarrativeStep,
   sourceLabel = "Mapbox",
+  storyOpen = true,
+  setStoryOpen,
 }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -663,6 +669,7 @@ export default function MapView({
   const [popupDismissed, setPopupDismissed] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [highlightedCue, setHighlightedCue] = useState(null);
+
 
 
   const [visibleLayers, setVisibleLayers] = useState({
@@ -692,84 +699,7 @@ export default function MapView({
     return 6;
   }, [routeType, timeMinutes]);
 
-  const visibleHeritageSites = useMemo(() => {
-    if (!startSite || !endSite) return [];
-  
-    const startAndEnd = [startSite, endSite].filter(Boolean);
-  
-    const uniqueSites = (sites) =>
-      sites.filter(
-        (site, index, arr) =>
-          arr.findIndex((s) => s.lng === site.lng && s.lat === site.lat) === index
-      );
-  
-    const routeLength = Math.hypot(
-      endSite.lng - startSite.lng,
-      endSite.lat - startSite.lat
-    );
-  
-    const rankedSites = heritageSites
-      .filter((site) => site.name !== startSite.name && site.name !== endSite.name)
-      .map((site) => {
-        const distToStart = Math.hypot(site.lng - startSite.lng, site.lat - startSite.lat);
-        const distToEnd = Math.hypot(site.lng - endSite.lng, site.lat - endSite.lat);
-        const routeBalance = Math.abs(distToStart - distToEnd);
-        const baseWeight = site.cueWeight || 0;
-        const adventureBoost = site.adventure ? 2.5 : 0;
-        const guidedPenalty = site.adventure ? 0.6 : 0;
-      
-        const directionBias =
-          ((site.lat - startSite.lat) * (endSite.lat - startSite.lat) +
-            (site.lng - startSite.lng) * (endSite.lng - startSite.lng)) * 0.3;
-      
-        return {
-          ...site,
-          distToStart,
-          distToEnd,
-          routeBalance,
-          directionBias,
-          routeScore:
-            routeType === "adventure"
-              ? routeBalance - baseWeight * 0.08 - adventureBoost - directionBias
-              : routeBalance + guidedPenalty - baseWeight * 0.01,
-        };
-      })
-      .sort((a, b) => a.routeScore - b.routeScore);
-  
-    if (routeType === "direct") {
-      const guidedCount =
-        timeMinutes <= 60 ? 1 : timeMinutes <= 120 ? 2 : 3;
-  
-      return uniqueSites([
-        ...startAndEnd,
-        ...rankedSites.slice(0, guidedCount),
-      ]);
-    }
-  
-    const exploratoryCount =
-      timeMinutes <= 30
-        ? 1
-        : timeMinutes <= 60
-        ? 2
-        : timeMinutes <= 90
-        ? 3
-        : timeMinutes <= 120
-        ? 4
-        : timeMinutes <= 180
-        ? 5
-        : 6;
-  
-    const exploratoryCandidates = rankedSites.filter(
-      (site) =>
-        site.adventure ||
-        site.cueWeight >= 2 ||
-        routeLength > 0.025
-    );
-  
-    const middleSites = exploratoryCandidates.slice(0, exploratoryCount);
-  
-    return uniqueSites([startSite, ...middleSites, endSite].filter(Boolean));
-  }, [heritageSites, routeType, startSite, endSite, timeMinutes]);
+  const visibleHeritageSites = routeStops;
 
 
   const cueGroups = useMemo(
@@ -1236,6 +1166,28 @@ const generatedCueCount = useMemo(() => {
   }, [startSite, endSite, routeType, timeMinutes]);
 
   useEffect(() => {
+    if (!selectedHeritage || !narrativeSteps.length) return;
+  
+    const matchedStep = narrativeSteps.find(
+      (step) =>
+        step.heritage?.id === selectedHeritage.id ||
+        step.heritage?.name === selectedHeritage.name
+    );
+  
+    if (
+      matchedStep &&
+      matchedStep.id !== selectedNarrativeStep?.id
+    ) {
+      setSelectedNarrativeStep?.(matchedStep);
+    }
+  }, [
+    selectedHeritage,
+    narrativeSteps,
+    selectedNarrativeStep,
+    setSelectedNarrativeStep,
+  ]);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady || !startSite || !endSite) return;
 
@@ -1380,6 +1332,15 @@ const generatedCueCount = useMemo(() => {
           <span>{travelMode === "cycle" ? "Cycle" : "Walk"}</span>
         </div>
       </div>
+      <div className="map-overlay bottom-right story-toggle-wrap">
+  <button
+    type="button"
+    className={`story-toggle-button ${storyOpen ? "open" : ""}`}
+    onClick={() => setStoryOpen?.(!storyOpen)}
+  >
+    {storyOpen ? "Hide story" : "Story"}
+  </button>
+</div>
 
       <div className="map-overlay bottom-left">
         <div className="map-legend-shell">
@@ -1450,31 +1411,40 @@ const generatedCueCount = useMemo(() => {
         </div>
       </div>
 
-      <div className="map-overlay bottom-right">
-       <div className="map-story-card">
-  <h4>
-    {routeType === "adventure"
-      ? `Explore by landmark · ${visibleHeritageSites.length} stops · ${timeMinutes} min`
-      : `Follow nearby heritage · ${visibleHeritageSites.length} stops · ${timeMinutes} min`}
-  </h4>
-
-  <p>
-  {routeType === "adventure"
-    ? `This route gradually expands beyond the most direct path, drawing the journey into a wider urban corridor where movement slows and attention shifts between streets, spaces, and encounters.`
-    : `This guided ${travelMode === "cycle" ? "cycle" : "walk"} keeps the destination legible while still using nearby heritage and urban cues to make the route feel situated rather than automatic.`}
-</p>
-
-  <div className="story-stats">
-  <span>{timeMinutes < 60 ? `${timeMinutes} min` : `${Math.floor(timeMinutes / 60)}h${timeMinutes % 60 ? ` ${timeMinutes % 60}m` : ""}`}</span>
-    <span>{visibleHeritageSites.length} stops</span>
-    <span>{displayCueCount} cues</span>
-    <span>{travelMode === "cycle" ? "Cycle mode" : "Walk mode"}</span>
+      {storyOpen && (
+  <div className="map-story-drawer">
+<NarrativePanel
+  stats={{
+    ...stats,
+    cueCount: displayCueCount,
+    timeLabel:
+      timeMinutes < 60
+        ? `${timeMinutes} min`
+        : `${Math.floor(timeMinutes / 60)}h${
+            timeMinutes % 60 ? ` ${timeMinutes % 60}m` : ""
+          }`,
+  }}
+  visibleHeritageSites={visibleHeritageSites}
+  narrativeSteps={narrativeSteps}
+  selectedHeritage={selectedHeritage}
+  selectedNarrativeStep={selectedNarrativeStep}
+  onSelectStep={(step) => {
+    setSelectedNarrativeStep?.(step);
+    if (step?.heritage) {
+      onSelectHeritage?.(step.heritage);
+    }
+  }}
+  startSite={startSite}
+  endSite={endSite}
+  safeTravelMode={travelMode}
+  safeRouteType={routeType}
+  onClose={() => setStoryOpen?.(false)}
+/>
   </div>
-</div>
-      </div>
+)}
 
       {popupSite ? (
-        <div className="heritage-popup">
+          <div className="heritage-popup with-story-open">
           <button
             type="button"
             className="popup-close"

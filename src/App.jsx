@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import { heritageSites } from "./data/heritageSites";
-import DesktopLayout from "./components/DesktopLayout";
-import MobileLayout from "./components/MobileLayout";
+import { cues as cueCatalog } from "./data/cues";
+import DesktopLayout from "./TOP/DesktopLayout";
+import MobileLayout from "./TOP/MobileLayout";
 
 const DEFAULT_TAB = "Journey";
 const DEFAULT_START = "St Pancras Old Church";
@@ -80,6 +81,256 @@ function buildStats(startSite, endSite, travelMode, routeType, timeMinutes) {
   };
 }
 
+function buildRouteStops(startSite, endSite, routeType, timeMinutes) {
+  if (!startSite || !endSite) return [];
+
+  const uniqueSites = (sites) =>
+    sites.filter(
+      (site, index, arr) => arr.findIndex((s) => s.id === site.id) === index
+    );
+
+  const routeLength = Math.hypot(
+    endSite.lng - startSite.lng,
+    endSite.lat - startSite.lat
+  );
+
+  const rankedSites = heritageSites
+    .filter((site) => site.id !== startSite.id && site.id !== endSite.id)
+    .map((site) => {
+      const distToStart = Math.hypot(
+        site.lng - startSite.lng,
+        site.lat - startSite.lat
+      );
+      const distToEnd = Math.hypot(site.lng - endSite.lng, site.lat - endSite.lat);
+
+      const routeBalance = Math.abs(distToStart - distToEnd);
+      const distanceToLine = distToStart + distToEnd;
+      const baseWeight = site.cueWeight || 0;
+      const adventureBoost = site.adventure ? 2.5 : 0;
+      const guidedPenalty = site.adventure ? 0.6 : 0;
+
+      const directionBias =
+        ((site.lat - startSite.lat) * (endSite.lat - startSite.lat) +
+          (site.lng - startSite.lng) * (endSite.lng - startSite.lng)) *
+        0.3;
+
+      return {
+        ...site,
+        routeScore:
+          routeType === "adventure"
+            ? routeBalance +
+              distanceToLine * 0.15 -
+              baseWeight * 0.08 -
+              adventureBoost -
+              directionBias
+            : routeBalance +
+              distanceToLine * 0.18 +
+              guidedPenalty -
+              baseWeight * 0.01,
+      };
+    })
+    .sort((a, b) => a.routeScore - b.routeScore);
+
+  if (routeType === "direct") {
+    const guidedCount =
+      timeMinutes <= 60 ? 1 : timeMinutes <= 120 ? 2 : timeMinutes <= 180 ? 3 : 4;
+
+    return uniqueSites([startSite, ...rankedSites.slice(0, guidedCount), endSite]);
+  }
+
+  const exploratoryCount =
+    timeMinutes <= 30
+      ? 1
+      : timeMinutes <= 60
+      ? 2
+      : timeMinutes <= 90
+      ? 3
+      : timeMinutes <= 120
+      ? 4
+      : timeMinutes <= 150
+      ? 5
+      : timeMinutes <= 180
+      ? 6
+      : 7;
+
+  const exploratoryCandidates = rankedSites.filter(
+    (site) => site.adventure || site.cueWeight >= 2 || routeLength > 0.02
+  );
+
+  return uniqueSites([
+    startSite,
+    ...exploratoryCandidates.slice(0, exploratoryCount),
+    endSite,
+  ]);
+}
+
+function buildSegmentsFromStops(stops, routeType) {
+  if (!stops.length) return [];
+
+  if (stops.length === 1) {
+    return [
+      {
+        id: `${stops[0].id}-only`,
+        type: "arrival",
+        title: stops[0].name,
+        heritage: stops[0],
+        order: 0,
+      },
+    ];
+  }
+
+  return stops.map((stop, index) => {
+    let type = "transition";
+
+    if (index === 0) type = "start";
+    else if (index === stops.length - 1) type = "arrival";
+    else if (routeType === "adventure" && index === Math.floor(stops.length / 2)) {
+      type = "intensity";
+    } else if (index <= 1) {
+      type = "orientation";
+    }
+
+    return {
+      id: `${stop.id}-${index}`,
+      type,
+      title: stop.name,
+      heritage: stop,
+      order: index,
+    };
+  });
+}
+
+function buildCueGroups(segments, routeType, timeMinutes) {
+  return segments.map((segment) => {
+    const isAdventure = routeType === "adventure";
+
+    const baseCueCount = isAdventure ? 4 : 2;
+    const timeBoost = timeMinutes >= 120 ? 2 : timeMinutes >= 90 ? 1 : 0;
+    const cueCount = baseCueCount + timeBoost;
+
+    const source =
+      Array.isArray(cueCatalog) && cueCatalog.length
+        ? cueCatalog
+        : [
+            { type: "tree", label: "Tree cover" },
+            { type: "bench", label: "Rest points" },
+            { type: "signal", label: "Crossings" },
+            { type: "lamp", label: "Street lighting" },
+            { type: "bus", label: "Transit rhythm" },
+          ];
+
+    const selected = source.slice(0, cueCount).map((cue, cueIndex) => {
+      let intensity = "medium";
+
+      if (segment.type === "start") intensity = cueIndex === 0 ? "low" : "medium";
+      if (segment.type === "orientation") intensity = "medium";
+      if (segment.type === "intensity") intensity = cueIndex < 2 ? "high" : "medium";
+      if (segment.type === "arrival") intensity = cueIndex === 0 ? "high" : "low";
+
+      return {
+        ...cue,
+        intensity,
+      };
+    });
+
+    return {
+      segmentId: segment.id,
+      count: selected.length,
+      items: selected,
+    };
+  });
+}
+
+function buildNarrativeText(
+  segment,
+  cues,
+  routeType,
+  startSite,
+  endSite,
+  timeMinutes
+) {
+  const cueLabels = (cues.items || [])
+    .map((item) => item.label || item.type)
+    .slice(0, 3);
+
+  const cueSummary =
+    cueLabels.length > 0 ? cueLabels.join(", ").toLowerCase() : "everyday cues";
+
+  const fromName = startSite?.name || "the starting point";
+  const toName = endSite?.name || "the destination";
+
+  const longJourney = timeMinutes >= 120;
+  const exploratory = routeType === "adventure";
+
+  const routeContext = exploratory
+    ? longJourney
+      ? `This longer exploratory route creates more room for drift between ${fromName} and ${toName}, allowing the journey to gather meaning gradually through the street environment.`
+      : `This exploratory route between ${fromName} and ${toName} loosens the most direct path and lets small cues shape how the city is read.`
+    : `This guided route between ${fromName} and ${toName} keeps the destination legible while still using nearby landmarks and cues to situate the journey in place.`;
+
+  switch (segment.type) {
+    case "start":
+      return exploratory
+        ? `${routeContext} The journey begins at ${segment.title}, where attention is first anchored before the route begins to open outward through ${cueSummary}.`
+        : `${routeContext} Starting at ${segment.title}, the route establishes a clear point of departure and uses ${cueSummary} to support orientation without over-directing movement.`;
+
+    case "orientation":
+      return exploratory
+        ? `Here the route starts to loosen. Rather than prescribing each turn, it invites movement through ${cueSummary}, encouraging the user to notice transitions in pace, frontage, and atmosphere.`
+        : `This segment keeps movement readable and stable. Cues such as ${cueSummary} help maintain direction while still making the surrounding street feel present.`;
+
+    case "intensity":
+      return exploratory
+        ? `Here the route becomes denser and more urban. The accumulation of ${cueSummary} shifts the journey from quiet orientation into a more public and layered landscape, making movement itself part of the story.`
+        : `This is the most active portion of the route, where ${cueSummary} gather more closely and reinforce the sense of arrival into a busier urban corridor.`;
+
+    case "arrival":
+      return exploratory
+        ? `The route resolves at ${segment.title}, where earlier cues and landmarks gather into a final stop. Rather than ending as pure efficiency, the journey arrives with a stronger sense of spatial transition and urban context.`
+        : `The route concludes at ${segment.title}. The destination remains clear throughout, but the journey still arrives with a richer awareness of how nearby streets, landmarks, and cues shape the approach.`;
+
+    default:
+      return exploratory
+        ? `This segment expands beyond the most direct path. Cues such as ${cueSummary} turn routine movement into a more exploratory encounter with the city.`
+        : `This segment keeps the route legible and focused, using ${cueSummary} to support orientation without overwhelming the journey.`;
+  }
+}
+
+function buildNarrativeSteps(
+  segments,
+  cueGroups,
+  routeType,
+  timeMinutes,
+  startSite,
+  endSite
+) {
+  return segments.map((segment, index) => {
+    const cues = cueGroups[index] || { items: [], count: 0 };
+
+    return {
+      id: segment.id,
+      order: index + 1,
+      type: segment.type,
+      title: segment.title,
+      heritage: segment.heritage,
+      cueCount: cues.count,
+      cues: cues.items,
+      durationLabel: `${Math.max(
+        10,
+        Math.round(timeMinutes / Math.max(segments.length, 1))
+      )} min`,
+      text: buildNarrativeText(
+        segment,
+        cues,
+        routeType,
+        startSite,
+        endSite,
+        timeMinutes
+      ),
+    };
+  });
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState(DEFAULT_TAB);
   const [start, setStart] = useState(DEFAULT_START);
@@ -88,8 +339,10 @@ export default function App() {
   const [routeType, setRouteType] = useState("adventure");
   const [timeMinutes, setTimeMinutes] = useState(90);
   const [selectedHeritage, setSelectedHeritage] = useState(null);
+  const [selectedNarrativeStep, setSelectedNarrativeStep] = useState(null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [storyOpen, setStoryOpen] = useState(false);
 
   const safeRouteType = useMemo(
     () => normalizeRouteType(routeType),
@@ -101,10 +354,7 @@ export default function App() {
     [travelMode]
   );
 
-  const locations = useMemo(
-    () => heritageSites.map((site) => site.name),
-    []
-  );
+  const locations = useMemo(() => heritageSites.map((site) => site.name), []);
 
   const startSite = useMemo(() => findSiteByName(start), [start]);
   const endSite = useMemo(() => findSiteByName(end), [end]);
@@ -118,6 +368,36 @@ export default function App() {
       timeMinutes
     );
   }, [startSite, endSite, safeTravelMode, safeRouteType, timeMinutes]);
+
+  const routeStops = useMemo(() => {
+    return buildRouteStops(startSite, endSite, safeRouteType, timeMinutes);
+  }, [startSite, endSite, safeRouteType, timeMinutes]);
+
+  const segments = useMemo(() => {
+    return buildSegmentsFromStops(routeStops, safeRouteType);
+  }, [routeStops, safeRouteType]);
+
+  const cueGroups = useMemo(() => {
+    return buildCueGroups(segments, safeRouteType, timeMinutes);
+  }, [segments, safeRouteType, timeMinutes]);
+
+  const narrativeSteps = useMemo(() => {
+    return buildNarrativeSteps(
+      segments,
+      cueGroups,
+      safeRouteType,
+      timeMinutes,
+      startSite,
+      endSite
+    );
+  }, [
+    segments,
+    cueGroups,
+    safeRouteType,
+    timeMinutes,
+    startSite,
+    endSite,
+  ]);
 
   function handleTimeChange(delta) {
     setTimeMinutes((prev) => {
@@ -159,7 +439,24 @@ export default function App() {
 
   useEffect(() => {
     setSelectedHeritage(null);
+    setSelectedNarrativeStep(null);
+    setStoryOpen(true);
   }, [start, end, safeRouteType, safeTravelMode, timeMinutes]);
+
+  useEffect(() => {
+    if (!selectedNarrativeStep && narrativeSteps.length > 0) {
+      setSelectedNarrativeStep(narrativeSteps[0]);
+    }
+  }, [narrativeSteps, selectedNarrativeStep]);
+
+  useEffect(() => {
+    if (
+      selectedNarrativeStep &&
+      !narrativeSteps.some((step) => step.id === selectedNarrativeStep.id)
+    ) {
+      setSelectedNarrativeStep(narrativeSteps[0] || null);
+    }
+  }, [narrativeSteps, selectedNarrativeStep]);
 
   useEffect(() => {
     function handleResize() {
@@ -172,23 +469,27 @@ export default function App() {
 
   const isMobile = windowWidth <= 768;
 
+  const sharedProps = {
+    heritageSites,
+    routeStops,
+    segments,
+    cueGroups,
+    narrativeSteps,
+    selectedNarrativeStep,
+    setSelectedNarrativeStep,
+    startSite,
+    endSite,
+    safeTravelMode,
+    safeRouteType,
+    timeMinutes,
+    stats,
+    selectedHeritage,
+    setSelectedHeritage,
+  };
+
   return isMobile ? (
     <MobileLayout
-      heritageSites={heritageSites}
-      startSite={startSite}
-      endSite={endSite}
-      safeTravelMode={safeTravelMode}
-      safeRouteType={safeRouteType}
-      timeMinutes={timeMinutes}
-      stats={stats}
-      selectedHeritage={selectedHeritage}
-      setSelectedHeritage={setSelectedHeritage}
-    />
-  ) : (
-    <DesktopLayout
-      heritageSites={heritageSites}
-      isPanelOpen={isPanelOpen}
-      setIsPanelOpen={setIsPanelOpen}
+      {...sharedProps}
       activeTab={activeTab}
       setActiveTab={setActiveTab}
       start={start}
@@ -200,17 +501,32 @@ export default function App() {
       setTravelMode={setTravelMode}
       routeType={safeRouteType}
       setRouteType={setRouteType}
-      timeMinutes={timeMinutes}
       handleTimeChange={handleTimeChange}
       timeStep={TIME_STEP}
-      stats={stats}
       locations={locations}
-      selectedHeritage={selectedHeritage}
-      setSelectedHeritage={setSelectedHeritage}
-      startSite={startSite}
-      endSite={endSite}
-      safeTravelMode={safeTravelMode}
-      safeRouteType={safeRouteType}
     />
+  ) : (
+<DesktopLayout
+  {...sharedProps}
+  isPanelOpen={isPanelOpen}
+  setIsPanelOpen={setIsPanelOpen}
+  storyOpen={storyOpen}
+  setStoryOpen={setStoryOpen}
+  activeTab={activeTab}
+  setActiveTab={setActiveTab}
+  start={start}
+  setStart={handleStartChange}
+  end={end}
+  setEnd={handleEndChange}
+  swapLocations={swapLocations}
+  travelMode={safeTravelMode}
+  setTravelMode={setTravelMode}
+  routeType={safeRouteType}
+  setRouteType={setRouteType}
+  timeMinutes={timeMinutes}
+  handleTimeChange={handleTimeChange}
+  timeStep={TIME_STEP}
+  locations={locations}
+/>
   );
 }

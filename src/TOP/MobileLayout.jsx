@@ -1,4 +1,4 @@
-import MapView from "./MapView";
+import MapView from "../MAP/MapView";
 import { heritageSites } from "../data/heritageSites";
 
 export default function MobileLayout({
