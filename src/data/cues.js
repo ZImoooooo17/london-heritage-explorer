@@ -5,26 +5,27 @@ export const cueCategories = [
   { key: "signal",   label: "Crossings",      color: "#4d4058" },
   { key: "bus_stop", label: "Transit rhythm", color: "#4A5D6A" },
 ];
-
+ 
 let _cueCache = null;
-
+ 
 export async function loadCues() {
   if (_cueCache) return _cueCache;
-
+ 
+  const base = import.meta.env.BASE_URL;
   const files = [
-    { file: "/trees.geojson",     type: "tree",     label: "Tree cover" },
-    { file: "/benches.geojson",   type: "bench",    label: "Rest point" },
-    { file: "/signals.geojson",   type: "signal",   label: "Crossing" },
-    { file: "/bus_stops.geojson", type: "bus_stop", label: "Bus stop" },
+    { file: `${base}trees.geojson`,     type: "tree",     label: "Tree cover" },
+    { file: `${base}benches.geojson`,   type: "bench",    label: "Rest point" },
+    { file: `${base}signals.geojson`,   type: "signal",   label: "Crossing" },
+    { file: `${base}bus_stops.geojson`, type: "bus_stop", label: "Bus stop" },
   ];
-
+ 
   const results = await Promise.all(
     files.map(({ file }) => fetch(file).then((r) => r.json()))
   );
-
+ 
   let id = 1;
   const allCues = [];
-
+ 
   results.forEach((geojson, i) => {
     const { type, label } = files[i];
     geojson.features.forEach((feature) => {
@@ -38,10 +39,10 @@ export async function loadCues() {
       });
     });
   });
-
+ 
   _cueCache = allCues;
   return allCues;
 }
-
+ 
 // Empty synchronous export — real data comes from loadCues()
 export const cues = [];

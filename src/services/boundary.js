@@ -6,7 +6,7 @@ let _boundaryPolygon = null;
 
 async function loadBoundary() {
   if (_boundaryCache) return _boundaryCache;
-  const res = await fetch("/boundary.geojson");
+  const res = await fetch(`${import.meta.env.BASE_URL}boundary.geojson`);
   const data = await res.json();
   _boundaryCache = data;
 

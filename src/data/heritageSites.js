@@ -1,17 +1,18 @@
 import { siteDescriptions } from "./siteDescriptions";
-
+ 
 let _cache = null;
-
+ 
 export async function loadHeritageSites() {
   if (_cache) return _cache;
-
+ 
+  const base = import.meta.env.BASE_URL;
   const files = [
-    "/parks.geojson",
-    "/memorials.geojson",
-    "/churches.geojson",
-    "/listed.geojson",
+    `${base}parks.geojson`,
+    `${base}memorials.geojson`,
+    `${base}churches.geojson`,
+    `${base}listed.geojson`,
   ];
-
+ 
   const results = await Promise.all(
     files.map((f) =>
       fetch(f).then((r) => {
@@ -20,19 +21,19 @@ export async function loadHeritageSites() {
       })
     )
   );
-
+ 
   let id = 1;
   const sites = [];
-
+ 
   results.forEach((geojson) => {
     geojson.features.forEach((feature) => {
       const props = feature.properties || {};
       const [lng, lat] = feature.geometry.coordinates;
       const name = props.name || "Unnamed site";
-
+ 
       // Look up static description by name
       const staticData = siteDescriptions[name] || {};
-
+ 
       sites.push({
         id: id++,
         name,
@@ -60,9 +61,9 @@ export async function loadHeritageSites() {
       });
     });
   });
-
+ 
   _cache = sites;
   return sites;
 }
-
+ 
 export const heritageSites = [];
